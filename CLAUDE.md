@@ -150,8 +150,10 @@ topology files; the `PYATS_*` values on the VM must match. Alpine hosts: cisco /
       The MCP tool prefix is now `mcp__Cisco_Modeling_Labs_CML__*`.
 - [ ] **5-node enforcement** on the dev server blocks building labs > 5 licensed nodes here.
 - [x] Device credentials confirmed: cisco / cisco, enable cisco.
-- [x] GitHub remote: `https://github.com/xevnan-git/CML-Labs` (private), pushed over HTTPS with Git Credential Manager.
-      CML lab repositories may not sync private repos — test on the work server, or make the repo public.
+- [x] GitHub remote: `https://github.com/xevnan-git/CML-Labs`, pushed over HTTPS with Git Credential Manager.
+      CML's Lab Repository can't authenticate, so it only syncs while the repo is **public**. The user makes it public
+      while we're working and private otherwise. If a refresh returns `could not read Username for 'https://github.com'`,
+      the repo is private: ask the user to flip it rather than debugging. Pushing works either way.
 - [x] Git identity set repo-locally: `xevnan-git <348862922+xevnan-git@users.noreply.github.com>` (GitHub email
       privacy rejects pushes with the Gmail address).
 - [ ] `tools/cml_teardown_lab.py` — user will drop it in; restrict its lab list to project-tagged titles (`[LEARN] `, `[TSHOOT] `, `[TEST] `, legacy `[LAB] `) and load `.env`.

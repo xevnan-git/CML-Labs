@@ -66,7 +66,7 @@ dnsmasq, chrome, firefox, splunk, thousandeyes). Topics that need these are mark
 ## Tooling
 
 - CML access is through the **cml-mcp** server (github.com/xorrkaz/cml-mcp) running on an Ubuntu VM over SSH, with the
-  `[pyats]` extra for device CLI. Today it is provided by the **Claude desktop app** (tools `mcp__Cisco_Modeling_Labs__CML___*`);
+  `[pyats]` extra for device CLI. Today it is provided by the **Claude desktop app** (tools `mcp__Cisco_Modeling_Labs_CML__*`);
   it is *not* registered with the terminal `claude` CLI. If CLI use is needed, register at **user scope** by copying
   the desktop entry — never into a project `.mcp.json`.
 - pyATS device login uses `PYATS_USERNAME` / `PYATS_PASSWORD` / `PYATS_AUTH_PASS` set on the VM side; every lab's
@@ -105,8 +105,8 @@ Full detail and the base config live in [`templates/addressing.md`](templates/ad
     addressing, intended design and expected behavior only — no hints. Hints, root cause, fixes and verification live
     only in `solution/README.md` (repo), so they aren't reachable from inside CML.
 - **Testing on the dev server (5-node limit):** test in chunks of ≤ 5 licensed nodes (unmanaged switches are free),
-  each as a temporary `[LAB] TEST …` lab. Without pyATS, verify via boot console logs (config errors, `%OSPF-5-ADJCHG`
-  etc.). In `solution/README.md` label every output block **Captured** or **Expected**. Final testing happens on the
+  each as a temporary `[LAB] TEST …` lab. Verify with real `show` output via `send_cli_command` (pyATS), plus boot
+  console logs for config errors. In `solution/README.md` label every output block **Captured** or **Expected**. Final testing happens on the
   user's 20-node server.
 - **Platforms:** `iol-xe` routers + `ioll2-xe` switches by default; `iosv`/`iosvl2` only where IOL lacks a feature
   (say why in the README). `alpine`/`server` for test hosts, `ubuntu` for service hosts.
@@ -134,10 +134,11 @@ topology files; the `PYATS_*` values on the VM must match. Alpine hosts: cisco /
 ## Open items
 
 - [x] Licensed-node counting: unmanaged_switch verified free (see above).
-- [ ] **pyATS not available**: `send_cli_command` returns "PyATS and Genie are required". Cause: the desktop entry
-      is the README example (`uvx cml-mcp`) running natively on Windows, and pyATS needs Linux (WSL2/Docker are out —
-      Hyper-V must stay off for VMware/CML). Plan: run `cml-mcp[pyats]` on the Ubuntu VMware VM via SSH stdio
-      (wrapper script + 600-mode env file on the VM; no creds in the Windows config).
+- [x] **pyATS working (2026-10-29).** The desktop entry runs `ssh -T -o BatchMode=yes … <vm> ~/bin/cml-mcp.sh` on the
+      Ubuntu VMware VM; the wrapper sources a 600-mode env file and runs `uvx --python 3.12 "cml-mcp[pyats]"`. Exec and
+      config-mode `send_cli_command` both verified on IOL-XE. (WSL2/Docker are out: Hyper-V must stay off for VMware.)
+      The first command to a freshly booted node can time out while pyATS connects; retry once.
+      The MCP tool prefix is now `mcp__Cisco_Modeling_Labs_CML__*`.
 - [ ] **5-node enforcement** on the dev server blocks building labs > 5 licensed nodes here.
 - [x] Device credentials confirmed: cisco / cisco, enable cisco.
 - [x] GitHub remote: `https://github.com/xevnan-git/CML-Labs` (private), pushed over HTTPS with Git Credential Manager.

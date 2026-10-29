@@ -20,6 +20,8 @@ topologies, the exact output to look for, and short explanations of why the devi
 - Only create/modify/start/stop/wipe/delete labs whose title starts with **`[LAB] `**. Never touch any other lab,
   even to read-and-tidy. (At setup the server held three untagged admin labs; leave them alone.)
 - **Ask before any stop / wipe / delete**, even on our own labs, unless the user explicitly said to clean up that lab.
+  **Standing exception (granted 2026-10-29):** temporary `[LAB] TEST …` labs that Claude created for chunk testing may
+  be stopped, wiped and deleted without asking. Every other lab, including finished `[LAB]` labs, still needs a yes.
 - Never change server settings, users, groups, licensing, or images.
 - Never commit credentials. `.env` is git-ignored; only `.env.example` (placeholders) is committed. Don't put the CML
   hostname/URL or SSH details in the repo.

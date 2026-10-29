@@ -1,0 +1,24 @@
+{
+  "_comment": "Snapshot of the work CML server's usable node definitions and images. Refresh via the MCP (get_cml_node_definitions) when images change. Only definitions with an installed image (or none required) are listed.",
+  "captured": "2026-10-29",
+  "cml_version": "2.10.1",
+  "license_node_limit": 20,
+  "unlicensed_node_definitions": ["unmanaged_switch", "external_connector"],
+  "unlicensed_verified": false,
+  "node_definitions": {
+    "iol-xe": ["iol-xe-17-18-02"],
+    "iol-xe-serial-4eth": ["iol-xe-serial-4eth-17-18-02"],
+    "iosv": ["iosv-159-3-m12"],
+    "ioll2-xe": ["ioll2-xe-17-18-02"],
+    "iosvl2": ["iosvl2-2020"],
+    "asav": ["asav-9-24-1"],
+    "alpine": ["alpine-base-3-23-3"],
+    "desktop": ["alpine-desktop-3-23-3"],
+    "server": ["server-tcl-17-0"],
+    "ubuntu": ["ubuntu-24-04-20260307"],
+    "wireless-ap": ["wireless-ap-24-04-20260409"],
+    "wireless-client": ["wireless-client-24-04-20260409"],
+    "unmanaged_switch": [],
+    "external_connector": []
+  }
+}

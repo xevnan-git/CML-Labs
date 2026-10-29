@@ -1,0 +1,16 @@
+# Secrets — never commit
+.env
+*.env
+!.env.example
+
+# Python / uv
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+
+# Local scratch
+*.log
+scratch/
+.DS_Store
+Thumbs.db

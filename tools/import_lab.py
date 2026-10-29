@@ -5,7 +5,8 @@
 """Import a lab topology into CML from a local file or a URL (e.g. a raw GitHub link).
 
 Reads CML_URL / CML_USERNAME / CML_PASSWORD / CML_VERIFY_SSL from the environment or a .env file at the repo root.
-Refuses topologies whose title doesn't start with "[LAB] " so only project labs land on the shared server.
+Refuses topologies whose title doesn't start with a project tag ("[LEARN] ", "[TSHOOT] ", "[TEST] ") so only
+project labs land on the shared server.
 
 Usage:
   uv run tools/import_lab.py <path-or-url> [--start] [--insecure] [--dry-run]
@@ -22,7 +23,7 @@ from pathlib import Path
 import yaml
 
 REPO = Path(__file__).resolve().parent.parent
-TITLE_PREFIX = "[LAB] "
+TITLE_PREFIXES = ("[LEARN] ", "[TSHOOT] ", "[TEST] ")
 
 
 def load_env(path: Path) -> None:
@@ -55,8 +56,8 @@ def main() -> int:
     text = read_source(args.source)
     topo = yaml.safe_load(text)
     title = ((topo or {}).get("lab") or {}).get("title", "")
-    if not title.startswith(TITLE_PREFIX):
-        print(f"Refusing: lab title {title!r} does not start with {TITLE_PREFIX!r}", file=sys.stderr)
+    if not title.startswith(TITLE_PREFIXES):
+        print(f"Refusing: lab title {title!r} does not start with one of {TITLE_PREFIXES}", file=sys.stderr)
         return 2
     print(f"Topology: {title} ({len(topo.get('nodes') or [])} nodes)")
     if args.dry_run:

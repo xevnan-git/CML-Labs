@@ -11,7 +11,7 @@ flattens repo folders, so file names must be unique repo-wide — never plain to
 Checks per lab folder:
   - one topology file, correctly named and unique across the repo
   - it parses and looks like a CML export (lab / nodes / links)
-  - lab title starts with the project tag "[LAB] "
+  - lab title starts with the mode tag: "[LEARN] " for learn-* labs, "[TSHOOT] " for ts-* labs
   - licensed node count <= the license limit (unlicensed definitions excluded)
   - every node_definition / image_definition exists in tools/server-inventory.json
   - links reference existing nodes and interfaces
@@ -35,7 +35,7 @@ import yaml
 REPO = Path(__file__).resolve().parent.parent
 LABS = REPO / "labs"
 INVENTORY = REPO / "tools" / "server-inventory.json"
-TITLE_PREFIX = "[LAB] "
+TITLE_PREFIX = {"learn": "[LEARN] ", "ts": "[TSHOOT] "}
 REQUIRED_SOLUTION_FILES = {
     "learn": ["README.md"],
     "ts": ["README.md"],
@@ -76,8 +76,9 @@ def check_lab(lab_dir: Path, inv: dict) -> list[str]:
         return errors + [f"{topo_path.name} is not a CML export (missing 'lab' or 'nodes')"]
 
     title = (topo.get("lab") or {}).get("title", "")
-    if not title.startswith(TITLE_PREFIX):
-        errors.append(f"lab title {title!r} must start with {TITLE_PREFIX!r}")
+    prefix = TITLE_PREFIX.get(lab_type(lab_dir))
+    if prefix and not title.startswith(prefix):
+        errors.append(f"lab title {title!r} must start with {prefix!r}")
 
     nodes = topo.get("nodes") or []
     defs = inv["node_definitions"]

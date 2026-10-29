@@ -1,5 +1,5 @@
 lab:
-  title: '[LAB] ENCOR 3.2.b OSPF – learn-multiarea'
+  title: '[LEARN] ENCOR 3.2.b OSPF Multi-Area'
   description: 'Learning: build OSPFv2 multi-area from clean routers — DR/BDR, point-to-point, passive, ABR summarization, type-3 filtering, ASBR.'
   notes: |
     # OSPFv2 Multi-Area — Learning Lab

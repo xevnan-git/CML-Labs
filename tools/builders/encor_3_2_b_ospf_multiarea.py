@@ -205,11 +205,11 @@ if __name__ == "__main__":
         (learn / f"solution/configs/{h}.cfg").write_text(pc_config(h), encoding="utf-8", newline="\n")
         (ts / f"solution/configs/{h}.cfg").write_text(pc_config(h), encoding="utf-8", newline="\n")
     write_yaml(learn / "encor-3.2.b-ospf-learn-multiarea.yaml",
-               topology("[LAB] ENCOR 3.2.b OSPF – learn-multiarea",
+               topology("[LEARN] ENCOR 3.2.b OSPF Multi-Area",
                         "Learning: build OSPFv2 multi-area from clean routers — DR/BDR, point-to-point, passive, ABR summarization, type-3 filtering, ASBR.",
                         "clean"))
     write_yaml(ts / "encor-3.2.b-ospf-ts-multiarea-adjacency.yaml",
-               topology("[LAB] ENCOR 3.2.b OSPF – ts-multiarea-adjacency",
+               topology("[TSHOOT] ENCOR 3.2.b OSPF Multi-Area Adjacency",
                         "Troubleshooting: a three-area OSPF network after a config 'standardization' — Site B can't reach Site A.",
                         "ts"))
     # Test chunks (<= 5 licensed nodes each) as JSON for the MCP
@@ -224,7 +224,7 @@ if __name__ == "__main__":
         "T-ts": ("ts", ["R1", "R2", "R4", "R5", "R6", "SW0"]),         # all three faults
     }
     for name, (mode, only) in chunks.items():
-        t = topology(f"[LAB] TEST ospf-pilot {name}", "temporary test chunk", mode, only)
+        t = topology(f"[TEST] ospf-pilot {name}", "temporary test chunk", mode, only)
         t["annotations"] = []  # keeps the MCP payload small; annotations are validated on the real files
         (OUT / f"{name}.json").write_text(json.dumps(t), encoding="utf-8")
     print("done")

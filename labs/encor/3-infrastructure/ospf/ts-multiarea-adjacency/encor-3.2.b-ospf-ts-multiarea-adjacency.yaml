@@ -1,5 +1,5 @@
 lab:
-  title: '[LAB] ENCOR 3.2.b OSPF – ts-multiarea-adjacency'
+  title: '[TSHOOT] ENCOR 3.2.b OSPF Multi-Area Adjacency'
   description: 'Troubleshooting: a three-area OSPF network after a config ''standardization'' — Site B can''t reach Site A.'
   notes: |
     # OSPFv2 Multi-Area — Troubleshooting Lab

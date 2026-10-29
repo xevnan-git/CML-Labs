@@ -42,10 +42,10 @@ Labs then appear under **Tools → Sample Labs**.
 cp .env.example .env   # fill in CML_URL / CML_USERNAME / CML_PASSWORD
 uv run tools/import_lab.py labs/encor/3-infrastructure/ospf/learn-multiarea/encor-3.2.b-ospf-learn-multiarea.yaml --start
 ```
-Raw GitHub URLs work too. Lab titles must start with `[LAB] ` (the script checks).
+Raw GitHub URLs work too. Lab titles must start with `[LEARN] `, `[TSHOOT] ` or `[TEST] ` (the script checks).
 
 ### Removing a lab
-`uv run tools/cml_teardown_lab.py` — lists `[LAB] ` labs, asks you to type the title, then stop → wipe → delete
+`uv run tools/cml_teardown_lab.py` — lists this project's labs (`[LEARN]`, `[TSHOOT]`, `[TEST]`), asks you to type the title, then stop → wipe → delete
 (`--dry-run`, `--insecure` available).
 
 ## Device logins
@@ -72,5 +72,5 @@ tools/       validate.py, import_lab.py, cml_teardown_lab.py, server-inventory.j
 ```bash
 uv run tools/validate.py
 ```
-Checks every lab's topology file is uniquely named (CML's Sample Labs browser flattens folders), parses, has the `[LAB] ` title prefix, stays within 20 licensed nodes, uses only node
+Checks every lab's topology file is uniquely named (CML's Sample Labs browser flattens folders), parses, has the right title tag (`[LEARN] ` or `[TSHOOT] `), stays within 20 licensed nodes, uses only node
 types/images present on the server, and that each lab has a README and a solution.

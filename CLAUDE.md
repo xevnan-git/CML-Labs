@@ -17,11 +17,12 @@ topologies, the exact output to look for, and short explanations of why the devi
 
 ## Safety rules (shared work server — non-negotiable)
 
-- Only create/modify/start/stop/wipe/delete labs whose title starts with **`[LAB] `**. Never touch any other lab,
+- Only create/modify/start/stop/wipe/delete labs whose title starts with a project tag: **`[LEARN] `**,
+  **`[TSHOOT] `** or **`[TEST] `**. (Labs created before 2026-10-29 used `[LAB] `; treat that as ours too.) Never touch any other lab,
   even to read-and-tidy. (At setup the server held three untagged admin labs; leave them alone.)
 - **Ask before any stop / wipe / delete**, even on our own labs, unless the user explicitly said to clean up that lab.
-  **Standing exception (granted 2026-10-29):** temporary `[LAB] TEST …` labs that Claude created for chunk testing may
-  be stopped, wiped and deleted without asking. Every other lab, including finished `[LAB]` labs, still needs a yes.
+  **Standing exception (granted 2026-10-29):** temporary `[TEST] …` labs that Claude created for chunk testing may
+  be stopped, wiped and deleted without asking. Every other lab, including `[LEARN]`/`[TSHOOT]` labs, still needs a yes.
 - Never change server settings, users, groups, licensing, or images.
 - Never commit credentials. `.env` is git-ignored; only `.env.example` (placeholders) is committed. Don't put the CML
   hostname/URL or SSH details in the repo.
@@ -90,7 +91,9 @@ dnsmasq, chrome, firefox, splunk, thousandeyes). Topics that need these are mark
 
 Full detail and the base config live in [`templates/addressing.md`](templates/addressing.md). Short form:
 
-- **Lab title:** `[LAB] <EXAM> <blueprint id> <Topic> – <learn|ts>-<name>`, e.g. `[LAB] ENARSI 1.10 OSPF – learn-multiarea`.
+- **Lab title:** `[LEARN] <EXAM> <blueprint id> <Topic>` or `[TSHOOT] <EXAM> <blueprint id> <Topic>`, e.g.
+  `[LEARN] ENCOR 3.2.b OSPF Multi-Area`. Keep it short: the tag already says the mode, so there's no `learn-`/`ts-`
+  suffix. `validate.py` requires `[LEARN] ` for `learn-*` folders and `[TSHOOT] ` for `ts-*` folders.
 - **Paths:** `labs/<exam>/<domain-number>-<domain-slug>/<topic-slug>/<learn|ts>-<name>/`
   (exam ∈ `encor`, `enarsi`, `ccna`; e.g. `labs/encor/3-infrastructure/ospf/learn-multiarea/`).
 - **Topology file name:** `<exam>-<id>-<topic>-<learn|ts>-<name>.yaml`, e.g. `encor-3.2.b-ospf-learn-multiarea.yaml`.
@@ -111,7 +114,7 @@ Full detail and the base config live in [`templates/addressing.md`](templates/ad
     addressing, intended design and expected behavior only — no hints. Hints, root cause, fixes and verification live
     only in `solution/README.md` (repo), so they aren't reachable from inside CML.
 - **Testing on the dev server (5-node limit):** test in chunks of ≤ 5 licensed nodes (unmanaged switches are free),
-  each as a temporary `[LAB] TEST …` lab. Verify with real `show` output via `send_cli_command` (pyATS), plus boot
+  each as a temporary `[TEST] …` lab. Verify with real `show` output via `send_cli_command` (pyATS), plus boot
   console logs for config errors. In `solution/README.md` label every output block **Captured** or **Expected**. Final testing happens on the
   user's 20-node server.
 - **Platforms:** `iol-xe` routers + `ioll2-xe` switches by default; `iosv`/`iosvl2` only where IOL lacks a feature
@@ -130,7 +133,7 @@ topology files; the `PYATS_*` values on the VM must match. Alpine hosts: cisco /
 ## Lab build workflow
 
 1. User names a topic. Design topology + write the README first; show the user a brief plan.
-2. Build on the server via the MCP (title prefixed `[LAB] `), start it, verify with real device output (pyATS).
+2. Build on the server via the MCP (title prefixed `[LEARN] `/`[TSHOOT] `, or `[TEST] ` for chunks), start it, verify with real device output (pyATS).
 3. Troubleshooting labs: build working → verify → inject fault(s) → confirm the symptoms appear → record in `solution/`.
 4. Write `<exam>-<id>-<topic>-<lab>.yaml` (or export with `download_lab_topology`), run `uv run tools/sync_notes.py`
    and `uv run tools/validate.py`, update `blueprint/*.md` status
@@ -151,5 +154,5 @@ topology files; the `PYATS_*` values on the VM must match. Alpine hosts: cisco /
       CML lab repositories may not sync private repos — test on the work server, or make the repo public.
 - [x] Git identity set repo-locally: `xevnan-git <348862922+xevnan-git@users.noreply.github.com>` (GitHub email
       privacy rejects pushes with the Gmail address).
-- [ ] `tools/cml_teardown_lab.py` — user will drop it in; restrict its lab list to `[LAB] ` titles and load `.env`.
+- [ ] `tools/cml_teardown_lab.py` — user will drop it in; restrict its lab list to project-tagged titles (`[LEARN] `, `[TSHOOT] `, `[TEST] `, legacy `[LAB] `) and load `.env`.
 - [ ] ENARSI: official v1.1 used; a v1.2 PDF URL returned 403 — recheck Cisco Learning Network occasionally.

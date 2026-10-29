@@ -175,7 +175,9 @@ def topology(title, description, mode, only=None):
         anns.append({"type": "text", "text_content": text, "x1": x - 70, "y1": y + 40, "rotation": 0,
                      "text_bold": False, "text_italic": False, "text_size": 10, "text_unit": "pt",
                      "text_font": "monospace", "color": "#5A5A5AFF", "border_color": "#00000000",
-                     "border_style": "solid", "thickness": 1, "z_index": 1})
+                     # CML file format: '' = solid, '2,2' = dotted, '4,2' = dashed. (The MCP tool wants
+                     # solid/dotted/dashed instead, but chunk payloads drop annotations, so files keep CML's form.)
+                     "border_style": "", "thickness": 1, "z_index": 1})
     return {"lab": {"title": title, "description": description, "notes": "", "version": "0.3.0"},
             "nodes": nodes, "links": links, "annotations": anns}
 

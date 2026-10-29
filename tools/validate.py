@@ -109,6 +109,11 @@ def check_lab(lab_dir: Path, inv: dict) -> list[str]:
             elif i not in interfaces[n]:
                 errors.append(f"link {link.get('id')}: node {n!r} has no interface {i!r}")
 
+    # CML's importer (and the Lab Repository indexer) only accepts these; anything else marks the whole file invalid.
+    for k, a in enumerate(topo.get("annotations") or []):
+        if a.get("border_style", "") not in ("", "2,2", "4,2"):
+            errors.append(f"annotation {k}: border_style {a.get('border_style')!r} must be '', '2,2' or '4,2'")
+
     annotation_text = "\n".join(
         a.get("text_content", "") for a in topo.get("annotations") or [] if a.get("type") == "text"
     )

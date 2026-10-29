@@ -78,7 +78,13 @@ dnsmasq, chrome, firefox, splunk, thousandeyes). Topics that need these are mark
   topologies as JSON for `create_full_lab_topology`.
 - **Startup-config gotcha (IOL):** anything that references an interface (e.g. `route-map … match interface Lo1`)
   must come *after* that interface in the config, or it's rejected at boot. Check boot console logs for `% Invalid input`.
-- **MCP annotation schema:** text annotations need `border_style` ∈ solid/dotted/dashed (an empty string is rejected).
+- **Annotation `border_style` differs by path:** CML's own file format (the import API and the Lab Repository indexer)
+  only accepts `''` (solid), `'2,2'` (dotted) or `'4,2'` (dashed). The MCP `create_full_lab_topology` tool
+  wants `solid`/`dotted`/`dashed` instead. Committed `.yaml` files must use CML's form, which `validate.py` checks. A
+  wrong value makes the indexer log "Invalid topology file" and silently drop the lab from Sample Labs.
+- **Testing a file the way CML reads it:** from the Ubuntu VM, `POST /api/v0/import` (Content-Type
+  `application/x-yaml`) returns the same validation errors the Lab Repository indexer hits.
+  `PUT /api/v0/lab_repos/refresh` returns the per-file index result.
 
 ## Conventions
 

@@ -949,7 +949,7 @@ annotations:
   text_font: monospace
   color: '#5A5A5AFF'
   border_color: '#00000000'
-  border_style: solid
+  border_style: ''
   thickness: 1
   z_index: 1
 - type: text
@@ -968,7 +968,7 @@ annotations:
   text_font: monospace
   color: '#5A5A5AFF'
   border_color: '#00000000'
-  border_style: solid
+  border_style: ''
   thickness: 1
   z_index: 1
 - type: text
@@ -987,7 +987,7 @@ annotations:
   text_font: monospace
   color: '#5A5A5AFF'
   border_color: '#00000000'
-  border_style: solid
+  border_style: ''
   thickness: 1
   z_index: 1
 - type: text
@@ -1007,7 +1007,7 @@ annotations:
   text_font: monospace
   color: '#5A5A5AFF'
   border_color: '#00000000'
-  border_style: solid
+  border_style: ''
   thickness: 1
   z_index: 1
 - type: text
@@ -1026,7 +1026,7 @@ annotations:
   text_font: monospace
   color: '#5A5A5AFF'
   border_color: '#00000000'
-  border_style: solid
+  border_style: ''
   thickness: 1
   z_index: 1
 - type: text
@@ -1045,7 +1045,7 @@ annotations:
   text_font: monospace
   color: '#5A5A5AFF'
   border_color: '#00000000'
-  border_style: solid
+  border_style: ''
   thickness: 1
   z_index: 1
 - type: text
@@ -1063,7 +1063,7 @@ annotations:
   text_font: monospace
   color: '#5A5A5AFF'
   border_color: '#00000000'
-  border_style: solid
+  border_style: ''
   thickness: 1
   z_index: 1
 - type: text
@@ -1081,6 +1081,6 @@ annotations:
   text_font: monospace
   color: '#5A5A5AFF'
   border_color: '#00000000'
-  border_style: solid
+  border_style: ''
   thickness: 1
   z_index: 1

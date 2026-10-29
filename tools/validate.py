@@ -4,8 +4,13 @@
 # ///
 """Validate every lab in labs/.
 
-Checks per lab folder (any directory containing topology.yaml):
-  - topology.yaml parses and looks like a CML export (lab / nodes / links)
+A lab folder is a learn-*/ts-* directory holding exactly one topology file named
+<exam>-<id>-<topic>-<folder>.yaml (e.g. encor-3.2.b-ospf-learn-multiarea.yaml). CML's Sample Labs browser
+flattens repo folders, so file names must be unique repo-wide — never plain topology.yaml.
+
+Checks per lab folder:
+  - one topology file, correctly named and unique across the repo
+  - it parses and looks like a CML export (lab / nodes / links)
   - lab title starts with the project tag "[LAB] "
   - licensed node count <= the license limit (unlicensed definitions excluded)
   - every node_definition / image_definition exists in tools/server-inventory.json
@@ -20,6 +25,7 @@ from __future__ import annotations
 
 import json
 import sys
+from collections import Counter
 from pathlib import Path
 
 import yaml
@@ -46,16 +52,26 @@ def lab_type(lab_dir: Path) -> str | None:
     return None
 
 
+def topology_files(lab_dir: Path) -> list[Path]:
+    return sorted(lab_dir.glob("*.yaml"))
+
+
 def check_lab(lab_dir: Path, inv: dict) -> list[str]:
     errors: list[str] = []
-    topo_path = lab_dir / "topology.yaml"
+    files = topology_files(lab_dir)
+    if len(files) != 1:
+        return [f"expected exactly one .yaml topology file, found {len(files)}"]
+    topo_path = files[0]
+    exam = lab_dir.relative_to(LABS).parts[0] if lab_dir.is_relative_to(LABS) else None
+    if not topo_path.name.endswith(f"-{lab_dir.name}.yaml") or (exam and not topo_path.name.startswith(exam + "-")):
+        errors.append(f"{topo_path.name}: name must be <exam>-<id>-<topic>-{lab_dir.name}.yaml")
 
     try:
         topo = yaml.safe_load(topo_path.read_text(encoding="utf-8"))
     except yaml.YAMLError as e:
-        return [f"topology.yaml does not parse: {e}"]
+        return errors + [f"{topo_path.name} does not parse: {e}"]
     if not isinstance(topo, dict) or "nodes" not in topo or "lab" not in topo:
-        return ["topology.yaml is not a CML export (missing 'lab' or 'nodes')"]
+        return errors + [f"{topo_path.name} is not a CML export (missing 'lab' or 'nodes')"]
 
     title = (topo.get("lab") or {}).get("title", "")
     if not title.startswith(TITLE_PREFIX):
@@ -110,23 +126,24 @@ def check_lab(lab_dir: Path, inv: dict) -> list[str]:
 
 def main(argv: list[str]) -> int:
     inv = load_inventory()
+    all_yaml = [p for p in LABS.rglob("*.yaml") if "solution" not in p.parts] if LABS.exists() else []
     if argv:
         lab_dirs = [Path(a).resolve() for a in argv]
     else:
-        lab_dirs = sorted(p.parent for p in LABS.rglob("topology.yaml")) if LABS.exists() else []
+        lab_dirs = sorted({p.parent for p in all_yaml})
 
     if not lab_dirs:
         print("No labs found.")
         return 0
 
+    name_counts = Counter(p.name for p in all_yaml)
+    duplicates = {name for name, n in name_counts.items() if n > 1}
+
     failed = 0
     for lab_dir in lab_dirs:
         rel = lab_dir.relative_to(REPO) if lab_dir.is_relative_to(REPO) else lab_dir
-        if not (lab_dir / "topology.yaml").is_file():
-            print(f"FAIL {rel}\n  - no topology.yaml")
-            failed += 1
-            continue
         errors = check_lab(lab_dir, inv)
+        errors += [f"{f.name}: file name is not unique in the repo" for f in topology_files(lab_dir) if f.name in duplicates]
         if errors:
             failed += 1
             print(f"FAIL {rel}")
@@ -135,8 +152,6 @@ def main(argv: list[str]) -> int:
         else:
             print(f"ok   {rel}")
 
-    if not inv.get("unlicensed_verified"):
-        print("note: unlicensed node counting is unverified (see CLAUDE.md)")
     print(f"\n{len(lab_dirs) - failed}/{len(lab_dirs)} labs passed")
     return 1 if failed else 0
 

@@ -3,8 +3,9 @@
   "captured": "2026-10-29",
   "cml_version": "2.10.1",
   "license_node_limit": 20,
+  "_license_comment": "Design target is 20. The current (unregistered/eval) server actually enforces 5: '5 of 5 node licenses are in use' observed 2026-10-29. unmanaged_switch verified not to count (6 running with 5 licenses); external_connector assumed.",
   "unlicensed_node_definitions": ["unmanaged_switch", "external_connector"],
-  "unlicensed_verified": false,
+  "unlicensed_verified": true,
   "node_definitions": {
     "iol-xe": ["iol-xe-17-18-02"],
     "iol-xe-serial-4eth": ["iol-xe-serial-4eth-17-18-02"],

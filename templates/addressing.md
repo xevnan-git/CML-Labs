@@ -22,7 +22,7 @@ collide with `R` numbers. Switches use 201+ for their SVI/Loopback host part (`S
 | Use | Prefix | Example |
 |---|---|---|
 | Router Loopback0 | `10.255.255.N/32` | R3 → `10.255.255.3` |
-| Extra loopbacks (simulated LANs) | `172.16.N.0/24` per router, more as `172.16+k.N.0/24` | R3 → `172.16.3.1/24` |
+| Extra loopbacks (simulated LANs) | `172.(16+N).x.0/24`, x = 0, 1, 2… (summarizable block per router, N ≤ 15) | R4 → `172.20.0.1/24` … `172.20.3.1/24` = `172.20.0.0/22` |
 | Router–router link Ra–Rb (a<b) | `10.a.b.0/24`, host = router number | R2–R5: R2 `10.2.5.2`, R5 `10.2.5.5` |
 | Second parallel link Ra–Rb | `10.a.b+100.0/24` | R2–R5 #2: `10.2.105.0/24` |
 | Multi-access transit (3+ routers) | `10.0.<seg>.0/24`, host = router number | segment 1: R1 `10.0.1.1` |

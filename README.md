@@ -27,14 +27,14 @@ URL = this repo, **Folder = `labs`**. CML syncs the default branch; press **Refr
 Labs then appear under **Tools → Sample Labs**.
 
 ### Option B — Web UI import (one lab)
-1. Download the lab's `topology.yaml`.
+1. Download the lab's `.yaml` file (e.g. `encor-3.2.b-ospf-learn-multiarea.yaml`).
 2. In CML: **Dashboard → Import** → choose the file → **Import**.
 3. Open the lab and **Start**.
 
 ### Option C — Script (file or URL)
 ```bash
 cp .env.example .env   # fill in CML_URL / CML_USERNAME / CML_PASSWORD
-uv run tools/import_lab.py labs/enarsi/1-layer3/ospf/learn-multiarea/topology.yaml --start
+uv run tools/import_lab.py labs/encor/3-infrastructure/ospf/learn-multiarea/encor-3.2.b-ospf-learn-multiarea.yaml --start
 ```
 Raw GitHub URLs work too. Lab titles must start with `[LAB] ` (the script checks).
 
@@ -56,7 +56,7 @@ Naming and addressing are the same in every lab so topologies feel familiar — 
 
 ```
 blueprint/   exam topic backlog with build status
-labs/        <exam>/<domain>/<topic>/{learn-*,ts-*}/{topology.yaml, README.md, solution/}
+labs/        <exam>/<domain>/<topic>/{learn-*,ts-*}/{<unique-name>.yaml, README.md, solution/}
 templates/   README templates, addressing & base-config conventions
 tools/       validate.py, import_lab.py, cml_teardown_lab.py, server-inventory.json
 ```
@@ -66,5 +66,5 @@ tools/       validate.py, import_lab.py, cml_teardown_lab.py, server-inventory.j
 ```bash
 uv run tools/validate.py
 ```
-Checks every `topology.yaml` parses, has the `[LAB] ` title prefix, stays within 20 licensed nodes, uses only node
+Checks every lab's topology file is uniquely named (CML's Sample Labs browser flattens folders), parses, has the `[LAB] ` title prefix, stays within 20 licensed nodes, uses only node
 types/images present on the server, and that each lab has a README and a solution.

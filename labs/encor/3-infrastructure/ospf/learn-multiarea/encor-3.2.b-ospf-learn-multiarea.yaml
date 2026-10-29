@@ -282,6 +282,7 @@ lab:
     Reset ALL OSPF processes? [no]: yes
     ```
     Look for: on R1, R3 is `FULL/DR` and R2 is `FULL/BDR`. On R2, R1 shows `FULL/DROTHER`.
+    `show ip ospf interface Ethernet0/0` on R1 now says `State DROTHER, Priority 0`.
 
     > **Why:** DR election is **non-preemptive**. A new router with a better priority doesn't take over an existing DR;
     > the election only reruns when the DR/BDR fail or the process restarts. Priority 0 means "never DR/BDR".
@@ -322,11 +323,11 @@ lab:
     R1# show ip route ospf
     ```
     Look for:
-    1. R4 is a neighbor of R1 — and in the `State` column it's `FULL/DR` or `FULL/BDR`. A DR election just happened on a
-       link with only two routers.
-    2. In `show ip ospf interface brief`, Et0/1 shows `State DR` or `BDR`.
-    3. In the route table, R4's site LANs appear as **`172.20.0.1/32`**, **`172.20.1.1/32`** … — host routes, not the
-       `/24`s you configured.
+    1. For the first ~40 seconds, `show ip ospf interface brief` on R1 shows Et0/1 in state **`WAIT`** and R4 as
+       `2WAY/DROTHER`. That's the broadcast network's wait timer: OSPF listens for a full dead interval before electing a DR.
+    2. Then R4 becomes `FULL/DR` (or `FULL/BDR`). A DR election just happened on a link with only two routers.
+    3. In the route table, R4's site LANs appear under `172.20.0.0/32 is subnetted` as **`172.20.0.1`**,
+       **`172.20.1.1`** … — host routes, not the `/24`s you configured.
 
     ### Fix the network types
 
@@ -442,7 +443,9 @@ lab:
     R2# show ip ospf database external
     R5# show ip ospf database asbr-summary
     ```
-    Look for: on R6 `O E2 203.0.113.0/24 [110/20]`. The external LSA's `Advertising Router` is 10.255.255.3.
+    Look for: on R6 `O E2 203.0.113.0/24 [110/20]`, and `type extern 2, forward metric 30` in
+    `show ip route 203.0.113.0` (the forward metric is R6's internal cost to reach the ASBR). The external LSA's
+    `Advertising Router` is 10.255.255.3.
     In area 2, R5 has a **type-4 ASBR-summary LSA** for 10.255.255.3, advertised by R2.
 
     > **Why:** External routes travel as **type-5 LSAs**, which flood unchanged to every normal area. But the type-5 names
@@ -501,7 +504,7 @@ lab:
     R1# show ip route 10.255.255.4
     PC2:~$ ping -c 3 192.168.10.10
     ```
-    Look for: R6 says `% Network not in table` and its ping fails. R1 still has the route. PC1↔PC2 still works.
+    Look for: R6 says `% Subnet not in table` and its ping fails. R1 still has the route. PC1↔PC2 still works.
 
     > **Why:** `area X filter-list prefix … in` stops the ABR from originating type-3 LSAs *into* area X for denied
     > prefixes. It only works on type-3 LSAs at an ABR: it can't filter intra-area routes or type-5 externals. The

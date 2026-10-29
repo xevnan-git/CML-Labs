@@ -33,11 +33,23 @@ interface parameter.
 - **Injected config:** `ip ospf 1 area 0` (designed: `ip ospf 1 area 2`)
 - **Why it breaks:** the area ID is carried in every hello. R2's Et0/1 is in area 2 and R5's Et0/0 says area 0, so
   each side discards the other's hellos and no adjacency forms. Area 2 is cut off from the backbone.
-- **Evidence — Captured** (R2 console, dev server):
+- **Evidence — Captured.** R2's log repeats this every hello interval (10 s):
   ```
+  R2# show logging | include OSPF
   %OSPF-4-ERRRCV: Received invalid packet: mismatched area ID from backbone area from 10.2.5.5, Ethernet0/1
+  %OSPF-4-ERRRCV: Received invalid packet: mismatched area ID from backbone area from 10.2.5.5, Ethernet0/1
+  ...
   ```
-  Also: `R5# show ip ospf interface brief` lists Et0/0 in area 0 while the other interfaces are in area 2.
+  R5 has no neighbors at all, and its interface list gives the fault away:
+  ```
+  R5# show ip ospf interface brief
+  Interface    PID   Area            IP Address/Mask    Cost  State Nbrs F/C
+  Et0/0        1     0               10.2.5.5/24        10    P2P   0/0
+  Lo0          1     2               10.255.255.5/32    1     LOOP  0/0
+  Et0/1        1     2               10.5.6.5/24        10    P2P   0/0
+  ```
+  Notice that only R2 logs the error. R5 receives hellos saying "area 2" on an interface it believes is in area 0,
+  but it logs nothing. The router that complains isn't necessarily the misconfigured one.
 - **Fix:**
   ```
   R5(config)# interface Ethernet0/0
@@ -50,9 +62,17 @@ interface parameter.
 - **Why it breaks:** a passive interface still advertises its subnet but sends and processes no hellos. With the
   uplink to R5 passive, R6 never forms an adjacency. Meanwhile the PC2 LAN interface, which was meant to be passive,
   is now sending hellos toward PC2 (a security issue, not the outage).
-- **Evidence:** R5 and R6 never log an ADJCHG for each other (*Captured*: no adjacency in the R6 console log; with the
-  intended config R6 logged FULL to 10.255.255.5 about 10 s after boot). `show ip ospf neighbor` is empty on R6.
-  `R6# show ip ospf interface Ethernet0/0` says `No Hellos (Passive interface)` *(Expected)*.
+- **Evidence — Captured.** R6 has no neighbors and no OSPF routes. The uplink's interface detail says why:
+  ```
+  R6# show ip ospf neighbor
+  (empty)
+  R6# show ip ospf interface Ethernet0/0 | include State|Passive
+    Transmit Delay is 1 sec, State POINT_TO_POINT
+      No Hellos (Passive interface)
+  R6# show ip route ospf | begin Gateway
+  Gateway of last resort is not set
+  ```
+  Unlike fault 1, neither side logs anything. R5 simply never hears a hello from R6.
 - **Fix:**
   ```
   R6(config)# router ospf 1
@@ -67,15 +87,23 @@ interface parameter.
   Description (DBD) packets do carry the interface MTU, and a router rejects a DBD advertising a larger MTU than its
   own. R4 (1400) rejects R1's DBDs (1500), so the pair loops in **EXSTART/EXCHANGE** and never reaches FULL. Area 1,
   including Site A's LANs, is cut off.
-- **Evidence:** *Captured:* no ADJCHG to FULL between R1 and R4 (with the intended config they reached FULL about
-  10 s after boot). *Expected:*
+- **Evidence — Captured.** The two ends get stuck in *different* states, which is the giveaway for an MTU mismatch:
   ```
   R1# show ip ospf neighbor
   Neighbor ID     Pri   State           Dead Time   Address         Interface
-  10.255.255.4      0   EXSTART/  -     00:00:36    10.1.4.4        Ethernet0/1
+  10.255.255.4      0   EXCHANGE/  -    00:00:38    10.1.4.4        Ethernet0/1
+
+  R4# show ip ospf neighbor
+  Neighbor ID     Pri   State           Dead Time   Address         Interface
+  10.255.255.1      0   EXSTART/  -     00:00:38    10.1.4.1        Ethernet0/0
+
+  R4# show ip interface Ethernet0/0 | include MTU
+    MTU is 1400 bytes
   ```
-  After a few minutes, the logs may show the neighbor dropping with *"Too many retransmissions"* and starting over.
-  Compare `show ip interface Ethernet0/0 | include MTU` on both ends.
+  R1 (MTU 1500) accepted R4's DBD and moved on to EXCHANGE. R4 (MTU 1400) keeps rejecting R1's DBD, which advertises
+  1500, so it never leaves EXSTART. On IOS-XE 17.18 neither side logged an MTU message during the test. You have to
+  find this one with `show ip ospf neighbor` and then compare MTUs. Left long enough, the adjacency may reset with
+  "Too many retransmissions" *(Expected, not seen in the short test)*.
 - **Fix:**
   ```
   R4(config)# interface Ethernet0/0
@@ -91,7 +119,36 @@ to reach PC1, which is why "fixing one may reveal the next".
 ## Final configs
 [`configs/`](configs/) — the fixed, intended configuration of every node. It's identical to the learning lab's final state.
 
+## Verifying the fix — Captured
+After the three fixes above, on the same test chunk:
+```
+R1# show ip ospf neighbor
+10.255.255.2    100   FULL/DR         00:00:31    10.0.1.2        Ethernet0/0
+10.255.255.4      0   FULL/  -        00:00:32    10.1.4.4        Ethernet0/1
+
+R6# show ip ospf neighbor
+10.255.255.5      0   FULL/  -        00:00:31    10.5.6.5        Ethernet0/0
+
+R6# show ip route ospf | include 172.20|192.168.10|10.255.255.4
+      172.20.0.0/22 is subnetted, 1 subnets
+O IA     172.20.0.0 [110/41] via 10.5.6.5, 00:00:38, Ethernet0/0
+O IA  192.168.10.0/24 [110/50] via 10.5.6.5, 00:00:38, Ethernet0/0
+
+R6# ping 172.20.3.1
+!!!!!
+R6# ping 192.168.10.1 source 192.168.20.1
+!!!!!
+R6# show ip route 10.255.255.4
+% Subnet not in table
+
+R4# show ip route ospf | include 192.168.20
+O IA  192.168.20.0/24 [110/50] via 10.1.4.1, 00:00:54, Ethernet0/0
+```
+The filter on R2 still hides 10.255.255.4 from area 2, as intended. (R2 is DR here only because R3 wasn't in the
+test chunk. On the full lab R3 is DR and R2 is BDR.)
+
 ## Test record
-Tested on the dev server (5-node limit) as chunk C: R1, R2, R4, R5, R6 + SW0 with these faults injected.
-Faults 1–3 produced the symptoms above (Captured items). The full 8-node lab, the PC tests and the *Expected* show
-output still need checking on the 20-node server.
+Tested on the dev server (5-node limit) with pyATS on 2026-10-29. The chunk was R1, R2, R4, R5, R6 + SW0 with all
+three faults injected: each fault's evidence was captured, the fixes were applied, and the result was re-checked.
+Not covered here: R3/external routes (they aren't affected by the faults) and the PC1 ↔ PC2 test. The LAN-to-LAN path
+was proven router-to-router. Run the full 8-node lab once on the 20-node server.

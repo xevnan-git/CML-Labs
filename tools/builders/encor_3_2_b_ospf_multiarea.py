@@ -216,12 +216,13 @@ if __name__ == "__main__":
     OUT = Path(sys.argv[sys.argv.index("--chunks") + 1])
     OUT.mkdir(parents=True, exist_ok=True)
     chunks = {
-        "A-final": ("final", ["R1", "R2", "R3", "R4", "R5", "SW0"]),
-        "B-final": ("final", ["R4", "PC1", "R5", "R6", "PC2"]),
-        "C-ts": ("ts", ["R1", "R2", "R4", "R5", "R6", "SW0"]),
-        "D-clean": ("clean", ["R1", "R4", "PC1", "R3", "SW0"]),
+        "A-final": ("final", ["R1", "R2", "R3", "R4", "R5", "SW0"]),   # area 0 DR/BDR, ABR summary, LSDB
+        "C-final": ("final", ["R1", "R2", "R4", "R5", "R6", "SW0"]),   # R6's view: summary + filter
+        "D-final": ("final", ["R2", "R3", "R5", "R6", "PC2", "SW0"]),  # external E2 + type-4, PC2
+        "T-ts": ("ts", ["R1", "R2", "R4", "R5", "R6", "SW0"]),         # all three faults
     }
     for name, (mode, only) in chunks.items():
         t = topology(f"[LAB] TEST ospf-pilot {name}", "temporary test chunk", mode, only)
+        t["annotations"] = []  # keeps the MCP payload small; annotations are validated on the real files
         (OUT / f"{name}.json").write_text(json.dumps(t), encoding="utf-8")
     print("done")

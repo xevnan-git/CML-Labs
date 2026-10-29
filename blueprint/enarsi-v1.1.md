@@ -22,7 +22,7 @@ Legend: see [README](README.md).
 | 1.9.e | EIGRP load balancing (equal and unequal cost / variance) | learn | backlog | | |
 | 1.9.f | EIGRP metrics (classic vs wide) | learn | backlog | | Folded into 1.9.c/e |
 | 1.10.a | OSPF address families (OSPFv2, OSPFv3 IPv4/IPv6 AF) | learn | backlog | | |
-| 1.10.b | OSPF neighbor relationships and authentication | ts | backlog | | MTU, timers, area, auth, network type mismatches |
+| 1.10.b | OSPF neighbor relationships and authentication | ts | backlog | | Area/MTU/passive faults covered by ENCOR 3.2.b ts-multiarea-adjacency; still needs auth, timers, network-type faults |
 | 1.10.c.i | OSPF network types: point-to-point, multipoint, broadcast, NBMA | learn + ts | backlog | | |
 | 1.10.c.ii | OSPF area types: backbone, normal, transit, stub, NSSA, totally stubby | learn + ts | backlog | | |
 | 1.10.c.iii | OSPF router types: internal, backbone, ABR, ASBR | → 1.10.c.ii | backlog | | |

@@ -1,0 +1,832 @@
+lab:
+  title: '[LAB] ENCOR 3.2.b OSPF – ts-multiarea-adjacency'
+  description: 'Troubleshooting: a three-area OSPF network after a config ''standardization'' — Site B can''t reach Site A.'
+  notes: |
+    # OSPFv2 Multi-Area — Troubleshooting Lab
+
+    > **Blueprint:** ENCOR 3.2.b — Configure simple OSPFv2/v3 environments (neighbor adjacency, point-to-point and
+    > broadcast network types, passive-interface); also ENARSI 1.10.b — Troubleshoot OSPF neighbor relationships
+    > **Mode:** Troubleshooting · **Nodes:** 8 licensed + 1 unmanaged switch · **Faults:** 3 · **Difficulty:** 2 of 3
+
+    ## Ticket
+
+    > **#4417 — Site B can't reach Site A after last night's change**
+    > "Last night's change window 'standardized the OSPF configs' on several routers. Since then, users at Site B
+    > (PC2, 192.168.20.10) can't reach anything at Site A (PC1, 192.168.10.10), not even the Site A server LANs
+    > (172.20.x.x). The change engineer says every router 'has OSPF configured and the interfaces are up'.
+    > The core (R1/R2/R3 segment) looks fine."
+
+    ## Lab access
+
+    | Node | Type | Username | Password | Enable |
+    |---|---|---|---|---|
+    | R1–R6 | IOL-XE router | cisco | cisco | cisco |
+    | PC1, PC2 | Alpine Linux | cisco | cisco | `sudo -i` |
+    | SW0 | Unmanaged switch | — | — | — |
+
+    Open a console from the node in CML (right-click → **Console**). Routers drop you straight into privileged EXEC.
+    Each node also has a label on the CML canvas with its login and addresses.
+
+    ## Topology
+
+    ```
+                             203.0.113.0/24 (R3 Lo1, "external")
+                                        |
+                                       R3  ASBR
+                                        | e0/0 .3
+                                 +------+------+
+         AREA 1                  |     SW0     |   10.0.1.0/24  AREA 0          AREA 2
+                                 +--+-------+--+
+                              .1 |  e0/0    e0/0 | .2
+     PC1 ---- R4 ------------- R1               R2 ------------- R5 ------------- R6 ---- PC2
+       .10  e0/1  e0/0      e0/1  ABR         ABR  e0/1      e0/0  e0/1      e0/0  e0/1    .10
+      192.168.10.0/24  10.1.4.0/24                      10.2.5.0/24      10.5.6.0/24   192.168.20.0/24
+         R4 Lo1-Lo4: 172.20.0.0/24 - 172.20.3.0/24
+              SITE A                                                                 SITE B
+    ```
+
+    ## Addressing (as designed)
+
+    | Node | Interface | IPv4 | Connects to | OSPF area |
+    |---|---|---|---|---|
+    | R1 | Loopback0 | 10.255.255.1/32 | — | 0 |
+    | R1 | Ethernet0/0 | 10.0.1.1/24 | SW0 (R2, R3) | 0 |
+    | R1 | Ethernet0/1 | 10.1.4.1/24 | R4 e0/0 | 1 |
+    | R2 | Loopback0 | 10.255.255.2/32 | — | 0 |
+    | R2 | Ethernet0/0 | 10.0.1.2/24 | SW0 (R1, R3) | 0 |
+    | R2 | Ethernet0/1 | 10.2.5.2/24 | R5 e0/0 | 2 |
+    | R3 | Loopback0 | 10.255.255.3/32 | — | 0 |
+    | R3 | Loopback1 | 203.0.113.1/24 | — (redistributed) | — |
+    | R3 | Ethernet0/0 | 10.0.1.3/24 | SW0 (R1, R2) | 0 |
+    | R4 | Loopback0 | 10.255.255.4/32 | — | 1 |
+    | R4 | Loopback1–4 | 172.20.0.1/24 … 172.20.3.1/24 | — (Site A server LANs) | 1 |
+    | R4 | Ethernet0/0 | 10.1.4.4/24 | R1 e0/1 | 1 |
+    | R4 | Ethernet0/1 | 192.168.10.1/24 | PC1 | 1 (passive) |
+    | R5 | Loopback0 | 10.255.255.5/32 | — | 2 |
+    | R5 | Ethernet0/0 | 10.2.5.5/24 | R2 e0/1 | 2 |
+    | R5 | Ethernet0/1 | 10.5.6.5/24 | R6 e0/0 | 2 |
+    | R6 | Loopback0 | 10.255.255.6/32 | — | 2 |
+    | R6 | Ethernet0/0 | 10.5.6.6/24 | R5 e0/1 | 2 |
+    | R6 | Ethernet0/1 | 192.168.20.1/24 | PC2 | 2 (passive) |
+    | PC1 | eth0 | 192.168.10.10/24, gw .1 | R4 e0/1 | — |
+    | PC2 | eth0 | 192.168.20.10/24, gw .1 | R6 e0/1 | — |
+
+    ## Intended design
+    - OSPF process 1 everywhere, enabled per interface (`ip ospf 1 area N`). Router IDs = Loopback0.
+    - **Area 0:** the SW0 broadcast segment plus R1/R2/R3 loopbacks. R3 is the DR (priority 255), R2 the BDR (priority 100),
+      and R1 never takes either role (priority 0).
+    - **Area 1:** R1–R4 link, R4 loopbacks, PC1 LAN. **Area 2:** R2–R5 and R5–R6 links, R5/R6 loopbacks, PC2 LAN.
+    - All router-to-router Ethernet links use OSPF network type **point-to-point**.
+    - The PC LANs (R4 e0/1, R6 e0/1) are **passive**: advertised, but no hellos sent.
+    - R1 summarizes area 1's server LANs as **172.20.0.0/22**. R2 filters R4's loopback (10.255.255.4/32) out of area 2.
+    - R3 redistributes 203.0.113.0/24 as an external (E2) route.
+
+    ## Expected behavior (healthy network)
+    - `show ip ospf neighbor` shows **FULL** on every router-to-router link:
+      R1↔R4, R2↔R5, R5↔R6 as `FULL/  -`, and on the segment R3 = `FULL/DR`, R2 = `FULL/BDR`, R1 = `DROTHER`.
+    - R6's routing table contains `O IA 172.20.0.0/22`, `O IA 192.168.10.0/24` and `O E2 203.0.113.0/24`, and
+      **does not** contain 10.255.255.4/32.
+    - R4's routing table contains `O IA 192.168.20.0/24` and `O E2 203.0.113.0/24`.
+
+    ## Done when
+    - `PC2:~$ ping -c 3 192.168.10.10` succeeds, and `PC1:~$ ping -c 3 192.168.20.10` succeeds.
+    - `R6# ping 172.20.3.1` succeeds.
+    - Every router-to-router adjacency listed above is FULL.
+    - R6 still has **no** route to 10.255.255.4/32 (the filter is intended — don't remove it).
+
+    ## Rules
+    - Fix with the smallest change that restores the intended design; don't redesign.
+    - There's more than one fault, and fixing one may reveal the next.
+    - Hints and the full solution are in the lab repository (`solution/README.md` in this lab's folder), not in CML.
+  version: 0.3.0
+nodes:
+- id: n0
+  label: R1
+  x: -240
+  y: 0
+  node_definition: iol-xe
+  image_definition: iol-xe-17-18-02
+  interfaces:
+  - id: i0
+    label: Loopback0
+    type: loopback
+  - id: i1
+    label: Ethernet0/0
+    type: physical
+    slot: 0
+  - id: i2
+    label: Ethernet0/1
+    type: physical
+    slot: 1
+  - id: i3
+    label: Ethernet0/2
+    type: physical
+    slot: 2
+  - id: i4
+    label: Ethernet0/3
+    type: physical
+    slot: 3
+  configuration:
+  - name: ios_config.txt
+    content: |
+      hostname R1
+      no ip domain lookup
+      ip domain name lab.local
+      enable secret cisco
+      username cisco privilege 15 secret cisco
+      !
+      interface Loopback0
+       ip address 10.255.255.1 255.255.255.255
+       ip ospf 1 area 0
+      !
+      interface Ethernet0/0
+       description AREA0 segment (SW0)
+       ip address 10.0.1.1 255.255.255.0
+       ip ospf 1 area 0
+       ip ospf priority 0
+       no shutdown
+      !
+      interface Ethernet0/1
+       description to R4 e0/0
+       ip address 10.1.4.1 255.255.255.0
+       ip ospf 1 area 1
+       ip ospf network point-to-point
+       no shutdown
+      !
+      interface Ethernet0/2
+       no ip address
+       shutdown
+      !
+      interface Ethernet0/3
+       no ip address
+       shutdown
+      !
+      router ospf 1
+       router-id 10.255.255.1
+       area 1 range 172.20.0.0 255.255.252.0
+      !
+      line con 0
+       exec-timeout 0 0
+       logging synchronous
+       privilege level 15
+      line vty 0 4
+       login local
+       transport input ssh telnet
+      !
+      end
+- id: n1
+  label: R2
+  x: 240
+  y: 0
+  node_definition: iol-xe
+  image_definition: iol-xe-17-18-02
+  interfaces:
+  - id: i0
+    label: Loopback0
+    type: loopback
+  - id: i1
+    label: Ethernet0/0
+    type: physical
+    slot: 0
+  - id: i2
+    label: Ethernet0/1
+    type: physical
+    slot: 1
+  - id: i3
+    label: Ethernet0/2
+    type: physical
+    slot: 2
+  - id: i4
+    label: Ethernet0/3
+    type: physical
+    slot: 3
+  configuration:
+  - name: ios_config.txt
+    content: |
+      hostname R2
+      no ip domain lookup
+      ip domain name lab.local
+      enable secret cisco
+      username cisco privilege 15 secret cisco
+      !
+      ip prefix-list NO-R4-LO0 seq 5 deny 10.255.255.4/32
+      ip prefix-list NO-R4-LO0 seq 10 permit 0.0.0.0/0 le 32
+      !
+      interface Loopback0
+       ip address 10.255.255.2 255.255.255.255
+       ip ospf 1 area 0
+      !
+      interface Ethernet0/0
+       description AREA0 segment (SW0)
+       ip address 10.0.1.2 255.255.255.0
+       ip ospf 1 area 0
+       ip ospf priority 100
+       no shutdown
+      !
+      interface Ethernet0/1
+       description to R5 e0/0
+       ip address 10.2.5.2 255.255.255.0
+       ip ospf 1 area 2
+       ip ospf network point-to-point
+       no shutdown
+      !
+      interface Ethernet0/2
+       no ip address
+       shutdown
+      !
+      interface Ethernet0/3
+       no ip address
+       shutdown
+      !
+      router ospf 1
+       router-id 10.255.255.2
+       area 2 filter-list prefix NO-R4-LO0 in
+      !
+      line con 0
+       exec-timeout 0 0
+       logging synchronous
+       privilege level 15
+      line vty 0 4
+       login local
+       transport input ssh telnet
+      !
+      end
+- id: n2
+  label: R3
+  x: 0
+  y: -200
+  node_definition: iol-xe
+  image_definition: iol-xe-17-18-02
+  interfaces:
+  - id: i0
+    label: Loopback0
+    type: loopback
+  - id: i1
+    label: Ethernet0/0
+    type: physical
+    slot: 0
+  - id: i2
+    label: Ethernet0/1
+    type: physical
+    slot: 1
+  - id: i3
+    label: Ethernet0/2
+    type: physical
+    slot: 2
+  - id: i4
+    label: Ethernet0/3
+    type: physical
+    slot: 3
+  configuration:
+  - name: ios_config.txt
+    content: |
+      hostname R3
+      no ip domain lookup
+      ip domain name lab.local
+      enable secret cisco
+      username cisco privilege 15 secret cisco
+      !
+      interface Loopback0
+       ip address 10.255.255.3 255.255.255.255
+       ip ospf 1 area 0
+      !
+      interface Loopback1
+       description simulated external network
+       ip address 203.0.113.1 255.255.255.0
+      !
+      interface Ethernet0/0
+       description AREA0 segment (SW0)
+       ip address 10.0.1.3 255.255.255.0
+       ip ospf 1 area 0
+       ip ospf priority 255
+       no shutdown
+      !
+      interface Ethernet0/1
+       no ip address
+       shutdown
+      !
+      interface Ethernet0/2
+       no ip address
+       shutdown
+      !
+      interface Ethernet0/3
+       no ip address
+       shutdown
+      !
+      route-map R3-EXTERNAL permit 10
+       match interface Loopback1
+      !
+      router ospf 1
+       router-id 10.255.255.3
+       redistribute connected subnets route-map R3-EXTERNAL
+      !
+      line con 0
+       exec-timeout 0 0
+       logging synchronous
+       privilege level 15
+      line vty 0 4
+       login local
+       transport input ssh telnet
+      !
+      end
+- id: n3
+  label: R4
+  x: -520
+  y: 200
+  node_definition: iol-xe
+  image_definition: iol-xe-17-18-02
+  interfaces:
+  - id: i0
+    label: Loopback0
+    type: loopback
+  - id: i1
+    label: Ethernet0/0
+    type: physical
+    slot: 0
+  - id: i2
+    label: Ethernet0/1
+    type: physical
+    slot: 1
+  - id: i3
+    label: Ethernet0/2
+    type: physical
+    slot: 2
+  - id: i4
+    label: Ethernet0/3
+    type: physical
+    slot: 3
+  configuration:
+  - name: ios_config.txt
+    content: |
+      hostname R4
+      no ip domain lookup
+      ip domain name lab.local
+      enable secret cisco
+      username cisco privilege 15 secret cisco
+      !
+      interface Loopback0
+       ip address 10.255.255.4 255.255.255.255
+       ip ospf 1 area 1
+      !
+      interface Loopback1
+       description site A simulated LAN
+       ip address 172.20.0.1 255.255.255.0
+       ip ospf 1 area 1
+       ip ospf network point-to-point
+      !
+      interface Loopback2
+       description site A simulated LAN
+       ip address 172.20.1.1 255.255.255.0
+       ip ospf 1 area 1
+       ip ospf network point-to-point
+      !
+      interface Loopback3
+       description site A simulated LAN
+       ip address 172.20.2.1 255.255.255.0
+       ip ospf 1 area 1
+       ip ospf network point-to-point
+      !
+      interface Loopback4
+       description site A simulated LAN
+       ip address 172.20.3.1 255.255.255.0
+       ip ospf 1 area 1
+       ip ospf network point-to-point
+      !
+      interface Ethernet0/0
+       description to R1 e0/1
+       ip address 10.1.4.4 255.255.255.0
+       ip ospf 1 area 1
+       ip ospf network point-to-point
+       ip mtu 1400
+       no shutdown
+      !
+      interface Ethernet0/1
+       description PC1 LAN
+       ip address 192.168.10.1 255.255.255.0
+       ip ospf 1 area 1
+       no shutdown
+      !
+      interface Ethernet0/2
+       no ip address
+       shutdown
+      !
+      interface Ethernet0/3
+       no ip address
+       shutdown
+      !
+      router ospf 1
+       router-id 10.255.255.4
+       passive-interface Ethernet0/1
+      !
+      line con 0
+       exec-timeout 0 0
+       logging synchronous
+       privilege level 15
+      line vty 0 4
+       login local
+       transport input ssh telnet
+      !
+      end
+- id: n4
+  label: R5
+  x: 520
+  y: 200
+  node_definition: iol-xe
+  image_definition: iol-xe-17-18-02
+  interfaces:
+  - id: i0
+    label: Loopback0
+    type: loopback
+  - id: i1
+    label: Ethernet0/0
+    type: physical
+    slot: 0
+  - id: i2
+    label: Ethernet0/1
+    type: physical
+    slot: 1
+  - id: i3
+    label: Ethernet0/2
+    type: physical
+    slot: 2
+  - id: i4
+    label: Ethernet0/3
+    type: physical
+    slot: 3
+  configuration:
+  - name: ios_config.txt
+    content: |
+      hostname R5
+      no ip domain lookup
+      ip domain name lab.local
+      enable secret cisco
+      username cisco privilege 15 secret cisco
+      !
+      interface Loopback0
+       ip address 10.255.255.5 255.255.255.255
+       ip ospf 1 area 2
+      !
+      interface Ethernet0/0
+       description to R2 e0/1
+       ip address 10.2.5.5 255.255.255.0
+       ip ospf 1 area 0
+       ip ospf network point-to-point
+       no shutdown
+      !
+      interface Ethernet0/1
+       description to R6 e0/0
+       ip address 10.5.6.5 255.255.255.0
+       ip ospf 1 area 2
+       ip ospf network point-to-point
+       no shutdown
+      !
+      interface Ethernet0/2
+       no ip address
+       shutdown
+      !
+      interface Ethernet0/3
+       no ip address
+       shutdown
+      !
+      router ospf 1
+       router-id 10.255.255.5
+      !
+      line con 0
+       exec-timeout 0 0
+       logging synchronous
+       privilege level 15
+      line vty 0 4
+       login local
+       transport input ssh telnet
+      !
+      end
+- id: n5
+  label: R6
+  x: 800
+  y: 200
+  node_definition: iol-xe
+  image_definition: iol-xe-17-18-02
+  interfaces:
+  - id: i0
+    label: Loopback0
+    type: loopback
+  - id: i1
+    label: Ethernet0/0
+    type: physical
+    slot: 0
+  - id: i2
+    label: Ethernet0/1
+    type: physical
+    slot: 1
+  - id: i3
+    label: Ethernet0/2
+    type: physical
+    slot: 2
+  - id: i4
+    label: Ethernet0/3
+    type: physical
+    slot: 3
+  configuration:
+  - name: ios_config.txt
+    content: |
+      hostname R6
+      no ip domain lookup
+      ip domain name lab.local
+      enable secret cisco
+      username cisco privilege 15 secret cisco
+      !
+      interface Loopback0
+       ip address 10.255.255.6 255.255.255.255
+       ip ospf 1 area 2
+      !
+      interface Ethernet0/0
+       description to R5 e0/1
+       ip address 10.5.6.6 255.255.255.0
+       ip ospf 1 area 2
+       ip ospf network point-to-point
+       no shutdown
+      !
+      interface Ethernet0/1
+       description PC2 LAN
+       ip address 192.168.20.1 255.255.255.0
+       ip ospf 1 area 2
+       no shutdown
+      !
+      interface Ethernet0/2
+       no ip address
+       shutdown
+      !
+      interface Ethernet0/3
+       no ip address
+       shutdown
+      !
+      router ospf 1
+       router-id 10.255.255.6
+       passive-interface Ethernet0/0
+      !
+      line con 0
+       exec-timeout 0 0
+       logging synchronous
+       privilege level 15
+      line vty 0 4
+       login local
+       transport input ssh telnet
+      !
+      end
+- id: n6
+  label: SW0
+  x: 0
+  y: 0
+  node_definition: unmanaged_switch
+  interfaces:
+  - id: i0
+    label: port0
+    slot: 0
+    type: physical
+  - id: i1
+    label: port1
+    slot: 1
+    type: physical
+  - id: i2
+    label: port2
+    slot: 2
+    type: physical
+  - id: i3
+    label: port3
+    slot: 3
+    type: physical
+- id: n7
+  label: PC1
+  x: -800
+  y: 200
+  node_definition: alpine
+  image_definition: alpine-base-3-23-3
+  interfaces:
+  - id: i0
+    label: eth0
+    slot: 0
+    type: physical
+  configuration:
+  - name: node.cfg
+    content: |
+      # this is a shell script which will be sourced at boot
+      hostname PC1
+      USERNAME=cisco
+      PASSWORD=cisco
+      ip address add 192.168.10.10/24 dev eth0
+      ip link set dev eth0 up
+      ip route add default via 192.168.10.1
+- id: n8
+  label: PC2
+  x: 1080
+  y: 200
+  node_definition: alpine
+  image_definition: alpine-base-3-23-3
+  interfaces:
+  - id: i0
+    label: eth0
+    slot: 0
+    type: physical
+  configuration:
+  - name: node.cfg
+    content: |
+      # this is a shell script which will be sourced at boot
+      hostname PC2
+      USERNAME=cisco
+      PASSWORD=cisco
+      ip address add 192.168.20.10/24 dev eth0
+      ip link set dev eth0 up
+      ip route add default via 192.168.20.1
+links:
+- id: l0
+  n1: n0
+  i1: i1
+  n2: n6
+  i2: i0
+- id: l1
+  n1: n1
+  i1: i1
+  n2: n6
+  i2: i1
+- id: l2
+  n1: n2
+  i1: i1
+  n2: n6
+  i2: i2
+- id: l3
+  n1: n0
+  i1: i2
+  n2: n3
+  i2: i1
+- id: l4
+  n1: n1
+  i1: i2
+  n2: n4
+  i2: i1
+- id: l5
+  n1: n4
+  i1: i2
+  n2: n5
+  i2: i1
+- id: l6
+  n1: n3
+  i1: i2
+  n2: n7
+  i2: i0
+- id: l7
+  n1: n5
+  i1: i2
+  n2: n8
+  i2: i0
+annotations:
+- type: text
+  text_content: |-
+    R1  ABR area 0/1  cisco/cisco
+    Lo0   10.255.255.1/32
+    e0/0  10.0.1.1/24  (SW0)
+    e0/1  10.1.4.1/24  (R4)
+  x1: -310
+  y1: 40
+  rotation: 0
+  text_bold: false
+  text_italic: false
+  text_size: 10
+  text_unit: pt
+  text_font: monospace
+  color: '#5A5A5AFF'
+  border_color: '#00000000'
+  border_style: solid
+  thickness: 1
+  z_index: 1
+- type: text
+  text_content: |-
+    R2  ABR area 0/2  cisco/cisco
+    Lo0   10.255.255.2/32
+    e0/0  10.0.1.2/24  (SW0)
+    e0/1  10.2.5.2/24  (R5)
+  x1: 170
+  y1: 40
+  rotation: 0
+  text_bold: false
+  text_italic: false
+  text_size: 10
+  text_unit: pt
+  text_font: monospace
+  color: '#5A5A5AFF'
+  border_color: '#00000000'
+  border_style: solid
+  thickness: 1
+  z_index: 1
+- type: text
+  text_content: |-
+    R3  ASBR area 0  cisco/cisco
+    Lo0   10.255.255.3/32
+    Lo1   203.0.113.1/24 (ext)
+    e0/0  10.0.1.3/24  (SW0)
+  x1: -70
+  y1: -160
+  rotation: 0
+  text_bold: false
+  text_italic: false
+  text_size: 10
+  text_unit: pt
+  text_font: monospace
+  color: '#5A5A5AFF'
+  border_color: '#00000000'
+  border_style: solid
+  thickness: 1
+  z_index: 1
+- type: text
+  text_content: |-
+    R4  area 1  cisco/cisco
+    Lo0   10.255.255.4/32
+    Lo1-4 172.20.0-3.1/24
+    e0/0  10.1.4.4/24  (R1)
+    e0/1  192.168.10.1/24 (PC1)
+  x1: -590
+  y1: 240
+  rotation: 0
+  text_bold: false
+  text_italic: false
+  text_size: 10
+  text_unit: pt
+  text_font: monospace
+  color: '#5A5A5AFF'
+  border_color: '#00000000'
+  border_style: solid
+  thickness: 1
+  z_index: 1
+- type: text
+  text_content: |-
+    R5  area 2  cisco/cisco
+    Lo0   10.255.255.5/32
+    e0/0  10.2.5.5/24  (R2)
+    e0/1  10.5.6.5/24  (R6)
+  x1: 450
+  y1: 240
+  rotation: 0
+  text_bold: false
+  text_italic: false
+  text_size: 10
+  text_unit: pt
+  text_font: monospace
+  color: '#5A5A5AFF'
+  border_color: '#00000000'
+  border_style: solid
+  thickness: 1
+  z_index: 1
+- type: text
+  text_content: |-
+    R6  area 2  cisco/cisco
+    Lo0   10.255.255.6/32
+    e0/0  10.5.6.6/24  (R5)
+    e0/1  192.168.20.1/24 (PC2)
+  x1: 730
+  y1: 240
+  rotation: 0
+  text_bold: false
+  text_italic: false
+  text_size: 10
+  text_unit: pt
+  text_font: monospace
+  color: '#5A5A5AFF'
+  border_color: '#00000000'
+  border_style: solid
+  thickness: 1
+  z_index: 1
+- type: text
+  text_content: |-
+    PC1  cisco/cisco
+    eth0 192.168.10.10/24
+    gw   192.168.10.1
+  x1: -870
+  y1: 240
+  rotation: 0
+  text_bold: false
+  text_italic: false
+  text_size: 10
+  text_unit: pt
+  text_font: monospace
+  color: '#5A5A5AFF'
+  border_color: '#00000000'
+  border_style: solid
+  thickness: 1
+  z_index: 1
+- type: text
+  text_content: |-
+    PC2  cisco/cisco
+    eth0 192.168.20.10/24
+    gw   192.168.20.1
+  x1: 1010
+  y1: 240
+  rotation: 0
+  text_bold: false
+  text_italic: false
+  text_size: 10
+  text_unit: pt
+  text_font: monospace
+  color: '#5A5A5AFF'
+  border_color: '#00000000'
+  border_style: solid
+  thickness: 1
+  z_index: 1

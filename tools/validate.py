@@ -15,7 +15,9 @@ Checks per lab folder:
   - licensed node count <= the license limit (unlicensed definitions excluded)
   - every node_definition / image_definition exists in tools/server-inventory.json
   - links reference existing nodes and interfaces
-  - README.md exists; solution/ exists and has the files its lab type requires
+  - every licensed node has a canvas text annotation that names it (login + addresses)
+  - README.md exists and lab.notes matches it (run tools/sync_notes.py)
+  - solution/README.md exists (hints/solution stay in the repo, never in CML notes)
 
 Usage:  uv run tools/validate.py [lab-dir ...]
 Exit code 0 when all labs pass, 1 otherwise.
@@ -35,8 +37,8 @@ LABS = REPO / "labs"
 INVENTORY = REPO / "tools" / "server-inventory.json"
 TITLE_PREFIX = "[LAB] "
 REQUIRED_SOLUTION_FILES = {
-    "learn": ["verification.md"],
-    "ts": ["root-cause.md"],
+    "learn": ["README.md"],
+    "ts": ["README.md"],
 }
 
 
@@ -107,8 +109,19 @@ def check_lab(lab_dir: Path, inv: dict) -> list[str]:
             elif i not in interfaces[n]:
                 errors.append(f"link {link.get('id')}: node {n!r} has no interface {i!r}")
 
-    if not (lab_dir / "README.md").is_file():
+    annotation_text = "\n".join(
+        a.get("text_content", "") for a in topo.get("annotations") or [] if a.get("type") == "text"
+    )
+    for node in nodes:
+        label = node.get("label", "")
+        if node.get("node_definition") not in unlicensed and label not in annotation_text:
+            errors.append(f"node {label}: no canvas text annotation with its login/addresses")
+
+    readme = lab_dir / "README.md"
+    if not readme.is_file():
         errors.append("missing README.md")
+    elif (topo.get("lab") or {}).get("notes") != readme.read_text(encoding="utf-8"):
+        errors.append("lab.notes does not match README.md (run: uv run tools/sync_notes.py)")
 
     kind = lab_type(lab_dir)
     solution = lab_dir / "solution"

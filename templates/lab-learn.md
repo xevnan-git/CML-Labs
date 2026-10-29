@@ -1,55 +1,64 @@
-# [LAB] <EXAM> <id> <Topic> – learn-<name>
+# <Topic> — Learning Lab
 
 > **Blueprint:** <EXAM> <id> — <exact exam topic text>
-> **Nodes:** <n> licensed (<list>) · **Time:** ~<min> min · **Prereqs:** <labs or concepts>
+> **Mode:** Learning (guided build from clean devices) · **Nodes:** <n> licensed · **Time:** ~<min> min
+
+<!--
+This README is copied verbatim into the lab's CML Notes (tools/sync_notes.py), so it must read well inside CML:
+plain Markdown, ASCII diagrams (no Mermaid), no links to solution files.
+-->
 
 ## What you'll learn
-- <Objective 1 — stated as something you can observe, e.g. "See why R3 becomes the DR on 10.0.1.0/24">
-- <Objective 2>
+- <Objective stated as something you can observe>
+
+## Lab access
+
+| Node | Type | Username | Password | Enable |
+|---|---|---|---|---|
+| R1 | IOL-XE router | cisco | cisco | cisco |
+| PC1 | Alpine Linux | cisco | cisco | `sudo -i` |
+
+Open a console from the node in CML (right-click → Console). Routers start in privileged EXEC.
+Each node also has a label in the CML canvas with its login and addresses.
 
 ## Topology
 
-```mermaid
-graph LR
-  R1 -- "e0/0 10.1.2.0/24 e0/0" --- R2
+```
+ PC1 ── e0/1 R1 e0/0 ── e0/0 R2
 ```
 
-### Addressing
+## Addressing
 
-| Device | Interface | IPv4 | IPv6 | Connects to |
-|---|---|---|---|---|
-| R1 | Lo0 | 10.255.255.1/32 | 2001:db8:ffff::1/128 | — |
+| Node | Interface | IPv4 | Connects to |
+|---|---|---|---|
+| R1 | Loopback0 | 10.255.255.1/32 | — |
 
 ## Starting point
-<What is already configured when the lab boots (base config, IPs) and what isn't.>
+Routers boot **clean**: hostname, login, and console settings only — no IP addresses, no routing.
+<Say what else is preconfigured, e.g. PC addressing.>
 
-## Tasks
+## Step 1 — <title>
+<What you're about to do and why, 1–2 sentences.>
 
-### Task 1 — <title>
-<Instructions. Say *what* to achieve; reveal the commands only in a collapsed hint.>
-
-<details><summary>Hint</summary>
-
+**R1**
 ```
-<commands>
+configure terminal
+ ...
+end
 ```
-</details>
 
 **Verify**
 ```
 R1# show ...
 ```
-Look for: <the specific line/field and value that proves it worked>.
+Look for: <field/value that proves it worked>.
 
-**Why it works this way:** <2–4 sentences on the mechanism.>
+> **Why:** <2–4 sentences on the mechanism.>
 
-### Task 2 — ...
+## Step 2 — ...
+
+## Final check
+<End-to-end test that proves the whole design works.>
 
 ## Check yourself
-- <Question that tests understanding, answerable from what they saw>
-
-## Clean up
-Stop and wipe the lab from the CML UI, or `uv run tools/cml_teardown_lab.py`.
-
----
-*Full final configs and captured output: [`solution/`](solution/).*
+- <Question answerable from what they observed>

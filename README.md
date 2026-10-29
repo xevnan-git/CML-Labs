@@ -4,10 +4,14 @@ Hands-on Cisco Modeling Labs (CML 2.9+) topologies for **CCNP Enterprise — ENC
 
 Each exam topic gets two kinds of labs:
 
-- **Learning labs** (`learn-*`) — build it yourself: objectives, step-by-step tasks, and the exact show output that
-  proves it works, with a short explanation of *why*.
-- **Troubleshooting labs** (`ts-*`) — a pre-broken network, a ticket describing the symptoms, and hints. The answer is
-  in that lab's `solution/` folder — don't peek until you've tried.
+- **Learning labs** (`learn-*`) — routers boot clean, and the Guide walks you step by step to the finished topic:
+  exact commands, what to look for in the output, and *why* it behaves that way.
+- **Troubleshooting labs** (`ts-*`) — the network boots fully configured with faults injected. The Guide gives the
+  ticket, logins, addressing, intended design and expected behavior. Hints and the answer are only in the lab's
+  `solution/README.md` here in the repo, not inside CML.
+
+Each lab's Guide is also in the lab's **Notes** inside CML, and every node has a canvas label with its login and
+addresses.
 
 Every lab fits within a **20-node** CML license and uses only IOL-XE, IOL-L2-XE, IOSv, IOSv-L2, ASAv and Linux nodes.
 
@@ -15,7 +19,9 @@ Every lab fits within a **20-node** CML license and uses only IOL-XE, IOL-L2-XE,
 
 | Exam | Blueprint | Topic | Learning lab | Troubleshooting lab |
 |---|---|---|---|---|
-| — | — | *No labs built yet — see [`blueprint/`](blueprint/) for the backlog* | | |
+| ENCOR | 3.2.b | OSPFv2 multi-area (DR/BDR, p2p, passive, summarization, filtering, ASBR) | [learn-multiarea](labs/encor/3-infrastructure/ospf/learn-multiarea/) | [ts-multiarea-adjacency](labs/encor/3-infrastructure/ospf/ts-multiarea-adjacency/) |
+
+Labs marked *dev-tested* in the backlog were tested in 5-node chunks; they still need a full run on a 20-node server.
 
 Backlog and status: [ENCOR v1.2](blueprint/encor-v1.2.md) · [ENARSI v1.1](blueprint/enarsi-v1.1.md)
 

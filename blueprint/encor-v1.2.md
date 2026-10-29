@@ -33,7 +33,7 @@ Legend: see [README](README.md).
 | 3.1.b | Static and dynamic EtherChannels (LACP, PAgP) | learn + ts | backlog | | verify PAgP on IOL-L2 |
 | 3.1.c | RSTP, MST, root guard, BPDU guard | learn + ts | backlog | | |
 | 3.2.a | EIGRP vs OSPF concepts (DV vs LS, LB, path selection, metrics, areas) | learn | backlog | | Same topology running both, compared |
-| 3.2.b | OSPFv2/v3 multi-area, summarization, filtering, network types, passive | learn + ts | backlog | | |
+| 3.2.b | OSPFv2/v3 multi-area, summarization, filtering, network types, passive | learn + ts | done (dev-tested) | [learn-multiarea](../labs/encor/3-infrastructure/ospf/learn-multiarea/), [ts-multiarea-adjacency](../labs/encor/3-infrastructure/ospf/ts-multiarea-adjacency/) | OSPFv2 only; OSPFv3 → ENARSI 1.10.a. Needs full 8-node run on 20-node server |
 | 3.2.c | eBGP between directly connected neighbors, best path, neighbor states | learn + ts | backlog | | |
 | 3.2.d | Policy-based routing | → ENARSI 1.6 | backlog | | |
 | 3.3.a | NTP and PTP configurations | learn + ts | backlog | | PTP concept-only |

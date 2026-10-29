@@ -23,5 +23,6 @@ If it's missing there, fall back to IOSv / IOSv-L2, and failing that to `concept
 
 ## Status column
 
-`backlog` → `designing` → `built` (on server, verified) → `done` (exported, validated, committed). The Lab(s)
+`backlog` → `designing` → `built` (on server, verified) → `done` (exported, validated, committed).
+`done (dev-tested)` = tested in ≤ 5-node chunks on the dev server only; it still needs a full run on the 20-node server. The Lab(s)
 column links the folders once they exist.

@@ -70,6 +70,13 @@ dnsmasq, chrome, firefox, splunk, thousandeyes). Topics that need these are mark
 - pyATS device login uses `PYATS_USERNAME` / `PYATS_PASSWORD` / `PYATS_AUTH_PASS` set on the VM side; every lab's
   base config must match them (see Device credentials below).
 - Repo scripts are PEP 723 single-file scripts run with `uv run tools/<script>.py`. They read CML creds from `.env`.
+- **Lab builders:** `tools/builders/<exam>_<id>_<topic>.py` generates a lab pair's clean / final / faulted configs,
+  both topology files (with node annotations) and `solution/configs/` from one definition, so the variants never
+  drift. Run order: builder → `tools/sync_notes.py` → `tools/validate.py`. `--chunks DIR` writes ≤ 5-node test
+  topologies as JSON for `create_full_lab_topology`.
+- **Startup-config gotcha (IOL):** anything that references an interface (e.g. `route-map … match interface Lo1`)
+  must come *after* that interface in the config, or it's rejected at boot. Check boot console logs for `% Invalid input`.
+- **MCP annotation schema:** text annotations need `border_style` ∈ solid/dotted/dashed (an empty string is rejected).
 
 ## Conventions
 
@@ -81,12 +88,24 @@ Full detail and the base config live in [`templates/addressing.md`](templates/ad
 - **Topology file name:** `<exam>-<id>-<topic>-<learn|ts>-<name>.yaml`, e.g. `encor-3.2.b-ospf-learn-multiarea.yaml`.
   Never `topology.yaml`: CML's Sample Labs browser flattens the repo, so names must be unique repo-wide. No other
   `.yaml` files anywhere under `labs/` (solutions use `.cfg` / `.md`) — CML would list them as labs.
-- **Lab notes:** the topology's `lab.notes` holds the lab README (Markdown) so learners see the tasks/ticket inside
-  CML; `lab.description` is a one-line summary for the Sample Labs list. Never put solutions in notes.
-- **Each lab folder:** the topology file (CML export, configs embedded, importable as-is), `README.md`, `solution/`.
-  - learn: `solution/verification.md` (real captured output) + `solution/configs/<node>.cfg` (final configs).
-  - ts: `solution/root-cause.md` (faults, fix, how to verify) + `solution/configs/<node>.cfg` (fixed configs).
-    The ts README must not reveal the fault.
+- **Lab notes:** the topology's `lab.notes` is the lab README (the Guide), copied by `tools/sync_notes.py` so learners
+  see it inside CML; `validate.py` fails if they drift. `lab.description` is a one-line summary for Sample Labs.
+  Guides use ASCII diagrams (CML notes don't render Mermaid) and never link to or contain solutions.
+- **Node annotations:** every licensed node gets a canvas text annotation next to it: name, login, and each interface
+  address (validated).
+- **Each lab folder:** the topology file (CML export, configs embedded, importable as-is), `README.md` (Guide),
+  `solution/README.md`, `solution/configs/<node>.cfg`. Templates: `templates/lab-learn.md`, `lab-ts.md`, `solution.md`.
+- **Two lab modes:**
+  - **Learning** — devices boot *clean* (hostname, login, console settings only; hosts preconfigured). The Guide walks
+    step by step from there to the finished topic, with the exact commands, what to look for, and why.
+    `solution/` holds the final configs and verification output.
+  - **Troubleshooting** — devices boot fully configured with injected fault(s). The Guide gives the ticket, access,
+    addressing, intended design and expected behavior only — no hints. Hints, root cause, fixes and verification live
+    only in `solution/README.md` (repo), so they aren't reachable from inside CML.
+- **Testing on the dev server (5-node limit):** test in chunks of ≤ 5 licensed nodes (unmanaged switches are free),
+  each as a temporary `[LAB] TEST …` lab. Without pyATS, verify via boot console logs (config errors, `%OSPF-5-ADJCHG`
+  etc.). In `solution/README.md` label every output block **Captured** or **Expected**. Final testing happens on the
+  user's 20-node server.
 - **Platforms:** `iol-xe` routers + `ioll2-xe` switches by default; `iosv`/`iosvl2` only where IOL lacks a feature
   (say why in the README). `alpine`/`server` for test hosts, `ubuntu` for service hosts.
 - **Names:** `R1..Rn`, `SW1..n`, `PC1..n`, `SRV1..n`, `ISP1..n`, `FW1..n`. Node number drives addressing.
@@ -105,7 +124,8 @@ topology files; the `PYATS_*` values on the VM must match. Alpine hosts: cisco /
 1. User names a topic. Design topology + write the README first; show the user a brief plan.
 2. Build on the server via the MCP (title prefixed `[LAB] `), start it, verify with real device output (pyATS).
 3. Troubleshooting labs: build working → verify → inject fault(s) → confirm the symptoms appear → record in `solution/`.
-4. Export to `<exam>-<id>-<topic>-<lab>.yaml` (`download_lab_topology`), put the README into `lab.notes`, run `uv run tools/validate.py`, update `blueprint/*.md` status
+4. Write `<exam>-<id>-<topic>-<lab>.yaml` (or export with `download_lab_topology`), run `uv run tools/sync_notes.py`
+   and `uv run tools/validate.py`, update `blueprint/*.md` status
    and the README index, commit (`<exam> <id>: add learn-/ts-<name>`).
 5. Ask before stopping/wiping/deleting the lab on the server.
 

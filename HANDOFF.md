@@ -1,0 +1,65 @@
+# Handoff — CML CCNP Lab Library
+
+Paste this into a new chat to continue the project. (It supersedes `claude-code-handoff-prompt.md`, the original setup brief.)
+
+## Goal
+Build a GitHub repo of Cisco Modeling Labs (CML) labs for **CCNP Enterprise: ENCOR 350-401 v1.2 + ENARSI 300-410 v1.1**.
+Every exam topic gets two labs:
+- **Learning lab**: routers boot clean, and a step-by-step Guide builds the topic, showing the exact commands, what to look for in the output, and *why*.
+- **Troubleshooting lab**: the network boots with injected faults. The Guide has a ticket, logins, addressing, intended design and expected behavior, with **no hints**. Hints and the solution live only in the repo's `solution/README.md`.
+
+The user understands CCNP concepts but has seen little of it running, so labs teach by doing. Labs are built **on demand**: the user names the next topic.
+
+## Current status (2026-10-29)
+- **Repo:** https://github.com/xevnan-git/CML-Labs, branch `main`, everything pushed. Local checkout: `C:\Claude\CML-Labs`.
+- **Built:** one pilot pair, ENCOR 3.2.b OSPFv2 multi-area (`labs/encor/3-infrastructure/ospf/`):
+  - `[LEARN] ENCOR 3.2.b OSPF Multi-Area`
+  - `[TSHOOT] ENCOR 3.2.b OSPF Multi-Area Adjacency`
+  - Both are tested with real pyATS output in 5-node chunks and appear in CML's Sample Labs.
+  - Only PC1↔PC2 end to end is untested, because it needs all 8 nodes running at once.
+- **Backlog:** `blueprint/encor-v1.2.md` and `blueprint/enarsi-v1.1.md` list every exam topic with plan and status.
+- **Tooling works:**
+  - CML MCP (cml-mcp with pyATS) runs on an Ubuntu VM over SSH, so `send_cli_command` works on IOL-XE and Alpine nodes.
+  - Scripts: `tools/validate.py`, `tools/sync_notes.py`, `tools/import_lab.py`, and one builder per lab pair in `tools/builders/`.
+
+## Environment
+- **Dev CML server:** CML 2.10.1 on VMware, unregistered eval license (expires 2027-01-27). It **enforces 5 running licensed nodes** (unmanaged switches don't count).
+- **Target:** the user's 20-node work server. Design every lab for ≤ 20 nodes; test here in ≤ 5-node chunks.
+- **Images:** IOL-XE 17.18.2 routers, IOL-L2-XE switches, IOSv, IOSv-L2, ASAv, Alpine, TinyCore, Ubuntu 24.04. No Cat8000v/CSR/XR/Nexus/Cat9kv/WLC/SD-WAN/ISE/Docker nodes, so those topics are marked "N/A here" in the backlog.
+- **MCP:** runs from the Claude desktop app via SSH to the Ubuntu VM (user `justin`, lowercase). Credentials live only in a 600-mode env file on the VM. Hyper-V must stay **off** (it breaks VMware), so there's no WSL or Docker.
+- **CML pulls the repo** as a Lab Repository (Folder = `labs`). CML can't authenticate, so the user makes the repo **public while working, private otherwise**. A refresh error `could not read Username for 'https://github.com'` just means it's private: ask the user to switch it.
+
+## Key decisions (all detailed in `CLAUDE.md`)
+- **Titles:** `[LEARN] <EXAM> <id> <Topic>` / `[TSHOOT] <EXAM> <id> <Topic>`. Temporary test chunks use `[TEST] …`.
+- **Paths:** `labs/<exam>/<n>-<domain>/<topic>/<learn|ts>-<name>/` containing `<exam>-<id>-<topic>-<learn|ts>-<name>.yaml` (unique name, never `topology.yaml`), `README.md` (the Guide, also copied into the lab's CML notes), `solution/README.md` and `solution/configs/*.cfg`.
+- **Every licensed node has a canvas label** with its login and addresses.
+- **Logins:** routers `cisco` / `cisco`, enable `cisco`; Alpine hosts `cisco` / `cisco`.
+- **Addressing:** Lo0 `10.255.255.N/32`; link Ra–Rb `10.a.b.0/24` with host = router number; LANs `192.168.<vlan>.0/24` (gateway .1); summarizable blocks `172.(16+N).x.0/24`. Full plan in `templates/addressing.md`.
+- **Solution output** is labelled **Captured** (real pyATS output) or **Expected** (not yet run).
+- **Git identity:** `xevnan-git <348862922+xevnan-git@users.noreply.github.com>`. GitHub rejects the Gmail address.
+
+## Workflow per lab
+1. The user names a topic. Design the topology and Guide; show a brief plan.
+2. Write a builder in `tools/builders/` that generates the clean, final and faulted configs plus both YAMLs.
+3. Test in ≤ 5-node `[TEST]` chunks with pyATS: build working → verify → inject faults → confirm the symptoms → apply the fixes → re-verify.
+4. Run `uv run tools/sync_notes.py` and `uv run tools/validate.py`. Import-check each YAML via CML `POST /api/v0/import` from the VM.
+5. Update the backlog and README index, commit, push, and refresh the CML repo (`PUT /api/v0/lab_repos/refresh`).
+
+## Avoid
+- **Shared-server safety:**
+  - Never touch CML labs without a project tag (`[LEARN]`/`[TSHOOT]`/`[TEST]`/legacy `[LAB]`). Three untagged admin labs on the server belong to the user.
+  - Ask before stopping, wiping or deleting any lab, except `[TEST]` labs you created, which have a standing OK.
+  - Never change CML server settings, users, licensing or images.
+- **Secrets:** never commit credentials, IPs or SSH details (`.env` is git-ignored). Don't put the CML password in command lines.
+- **Annotation format:** in committed YAML, annotation `border_style` must be `''`, `'2,2'` or `'4,2'`. The MCP tool wants `solid`/`dotted`/`dashed` instead, and the wrong form makes CML silently drop the lab ("Invalid topology file").
+- **IOL config order:** in IOL startup configs, anything that references an interface (e.g. `route-map … match interface`) must come *after* that interface.
+- **Hints in CML:** don't put hints or solutions in a troubleshooting Guide or the CML notes.
+- **Timeouts:** the first pyATS command to a freshly booted node can time out. Retry once.
+
+## Open items
+- Full 8-node run of the OSPF pilot on the 20-node server (the user will do this and give feedback on the Guide format).
+- `tools/cml_teardown_lab.py`: the user will add it. Restrict it to project-tagged labs and `.env`.
+- Unverified: whether `external_connector` counts against the license. Recheck now and then whether an ENARSI v1.2 blueprint exists.
+
+## Very next step
+Ask the user whether they've run the OSPF pilot on the 20-node server, and fold any feedback into the templates. Then ask which backlog topic to build next and follow the workflow above.

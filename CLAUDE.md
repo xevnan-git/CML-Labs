@@ -134,12 +134,15 @@ topology files; the `PYATS_*` values on the VM must match. Alpine hosts: cisco /
 ## Open items
 
 - [x] Licensed-node counting: unmanaged_switch verified free (see above).
-- [ ] **pyATS not available**: `send_cli_command` returns "PyATS and Genie are required". The desktop MCP entry
-      must launch `cml-mcp[pyats]` (pyATS does not run on native Windows — it must run on the Ubuntu VM).
+- [ ] **pyATS not available**: `send_cli_command` returns "PyATS and Genie are required". Cause: the desktop entry
+      is the README example (`uvx cml-mcp`) running natively on Windows, and pyATS needs Linux (WSL2/Docker are out —
+      Hyper-V must stay off for VMware/CML). Plan: run `cml-mcp[pyats]` on the Ubuntu VMware VM via SSH stdio
+      (wrapper script + 600-mode env file on the VM; no creds in the Windows config).
 - [ ] **5-node enforcement** on the dev server blocks building labs > 5 licensed nodes here.
 - [x] Device credentials confirmed: cisco / cisco, enable cisco.
-- [ ] GitHub remote: private repo exists under `xevnan-git`; `gh` not installed. CML lab repositories may not
-      sync private repos — test on the work server, or make the repo public.
-- [x] Git identity set repo-locally (xevnan-git).
+- [x] GitHub remote: `https://github.com/xevnan-git/CML-Labs` (private), pushed over HTTPS with Git Credential Manager.
+      CML lab repositories may not sync private repos — test on the work server, or make the repo public.
+- [x] Git identity set repo-locally: `xevnan-git <348862922+xevnan-git@users.noreply.github.com>` (GitHub email
+      privacy rejects pushes with the Gmail address).
 - [ ] `tools/cml_teardown_lab.py` — user will drop it in; restrict its lab list to `[LAB] ` titles and load `.env`.
 - [ ] ENARSI: official v1.1 used; a v1.2 PDF URL returned 403 — recheck Cisco Learning Network occasionally.

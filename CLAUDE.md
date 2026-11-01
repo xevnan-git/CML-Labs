@@ -79,6 +79,10 @@ dnsmasq, chrome, firefox, splunk, thousandeyes). Topics that need these are mark
   topologies as JSON for `create_full_lab_topology`.
 - **Startup-config gotcha (IOL):** anything that references an interface (e.g. `route-map … match interface Lo1`)
   must come *after* that interface in the config, or it's rejected at boot. Check boot console logs for `% Invalid input`.
+- **IOL-L2 gotchas (verified 2026-11-01):** `ip routing` is on by default (hidden from the running config), so
+  `ip default-gateway` is ignored: L2-only switches need `no ip routing` before it. Default STP mode is
+  `rapid-pvst`. There's no `show pagp`; use `show etherchannel <n> detail`. IOL MACs (`aabb.cc00.XX00`) come from
+  the node ID, so default root elections differ between servers.
 - **Annotation `border_style` differs by path:** CML's own file format (the import API and the Lab Repository indexer)
   only accepts `''` (solid), `'2,2'` (dotted) or `'4,2'` (dashed). The MCP `create_full_lab_topology` tool
   wants `solid`/`dotted`/`dashed` instead. Committed `.yaml` files must use CML's form, which `validate.py` checks. A

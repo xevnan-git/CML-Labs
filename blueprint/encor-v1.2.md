@@ -31,7 +31,7 @@ Legend: see [README](README.md).
 |---|---|---|---|---|---|
 | 3.1.a | Static and dynamic 802.1Q trunking (DTP) | ts (combined with 3.1.b) | done (dev-tested) | [ts-trunk-etherchannel](../labs/encor/3-infrastructure/switching/ts-trunk-etherchannel/) | IOL-L2-XE. Learn lab skipped at user's request |
 | 3.1.b | Static and dynamic EtherChannels (LACP, PAgP) | ts (combined with 3.1.a) | done (dev-tested) | [ts-trunk-etherchannel](../labs/encor/3-infrastructure/switching/ts-trunk-etherchannel/) | PAgP works on IOL-L2 (no `show pagp`; use `show etherchannel`). Learn lab skipped |
-| 3.1.c | RSTP, MST, root guard, BPDU guard | learn + ts | backlog | | |
+| 3.1.c | RSTP, MST, root guard, BPDU guard | learn + ts | done (dev-tested) | [learn-stp](../labs/encor/3-infrastructure/switching/learn-stp/), [ts-mst-guards](../labs/encor/3-infrastructure/switching/ts-mst-guards/) | IOL-L2 defaults to rapid-pvst. TS: PC1↔PC2 end to end needs 6 nodes |
 | 3.2.a | EIGRP vs OSPF concepts (DV vs LS, LB, path selection, metrics, areas) | learn | backlog | | Same topology running both, compared |
 | 3.2.b | OSPFv2/v3 multi-area, summarization, filtering, network types, passive | learn + ts | done (dev-tested) | [learn-multiarea](../labs/encor/3-infrastructure/ospf/learn-multiarea/), [ts-multiarea-adjacency](../labs/encor/3-infrastructure/ospf/ts-multiarea-adjacency/) | OSPFv2 only; OSPFv3 → ENARSI 1.10.a. Needs full 8-node run on 20-node server |
 | 3.2.c | eBGP between directly connected neighbors, best path, neighbor states | learn + ts | backlog | | |

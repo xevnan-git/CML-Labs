@@ -130,7 +130,8 @@ def config(h, mode):
     for vlan, ip in d["svis"]:
         out.append(f"interface Vlan{vlan}\n ip address {ip} 255.255.255.0\n no shutdown\n!\n")
     if d.get("gw"):
-        out.append(f"ip default-gateway {d['gw']}\n!\n")
+        # IOL-L2 runs with ip routing on by default, which makes it ignore ip default-gateway
+        out.append(f"no ip routing\nip default-gateway {d['gw']}\n!\n")
     out.append(LINES)
     return "".join(out)
 

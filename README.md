@@ -20,6 +20,7 @@ Every lab fits within a **20-node** CML license and uses only IOL-XE, IOL-L2-XE,
 | Exam | Blueprint | Topic | Learning lab | Troubleshooting lab |
 |---|---|---|---|---|
 | ENCOR | 3.1.a, 3.1.b | 802.1Q trunking (DTP, VTP domain) + EtherChannel (LACP, PAgP, misconfig guard) | — | [ts-trunk-etherchannel](labs/encor/3-infrastructure/switching/ts-trunk-etherchannel/) |
+| ENCOR | 3.1.c | Spanning tree: Rapid PVST+, MST regions, PortFast, BPDU guard, root guard | [learn-stp](labs/encor/3-infrastructure/switching/learn-stp/) | [ts-mst-guards](labs/encor/3-infrastructure/switching/ts-mst-guards/) |
 | ENCOR | 3.2.b | OSPFv2 multi-area (DR/BDR, p2p, passive, summarization, filtering, ASBR) | [learn-multiarea](labs/encor/3-infrastructure/ospf/learn-multiarea/) | [ts-multiarea-adjacency](labs/encor/3-infrastructure/ospf/ts-multiarea-adjacency/) |
 
 Labs marked *dev-tested* in the backlog were tested in 5-node chunks; they still need a full run on a 20-node server.

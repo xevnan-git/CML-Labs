@@ -400,6 +400,7 @@ nodes:
        ip address 192.168.99.202 255.255.255.0
        no shutdown
       !
+      no ip routing
       ip default-gateway 192.168.99.1
       !
       line con 0
@@ -536,6 +537,7 @@ nodes:
        ip address 192.168.99.203 255.255.255.0
        no shutdown
       !
+      no ip routing
       ip default-gateway 192.168.99.1
       !
       line con 0
@@ -669,6 +671,7 @@ nodes:
        ip address 192.168.99.204 255.255.255.0
        no shutdown
       !
+      no ip routing
       ip default-gateway 192.168.99.1
       !
       line con 0

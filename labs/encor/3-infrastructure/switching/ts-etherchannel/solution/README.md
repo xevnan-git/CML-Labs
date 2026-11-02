@@ -249,4 +249,3 @@ path to SW1 was proven in its own pass, and SW1 routes between VLAN 10 and 20 lo
 - IOL-XE (router) rejects `channel-group` on its Ethernet ports with `Invalid channel group number`, which is why
   SW5 is an L3 switch rather than a router.
 - `show pagp` doesn't exist on IOL-L2; use `show etherchannel <n> detail`.
-- About 60 s after boot the PnP agent ("Config Wizard") adds `no logging console`. Use `show logging`.

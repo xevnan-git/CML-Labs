@@ -84,8 +84,11 @@ dnsmasq, chrome, firefox, splunk, thousandeyes). Topics that need these are mark
   `rapid-pvst`. There's no `show pagp`; use `show etherchannel <n> detail`. IOL MACs (`aabb.cc00.XX00`) come from
   the node ID, so default root elections differ between servers. EtherChannel: no `port-channel min-links`;
   `lacp max-bundle` is accepted but silently dropped. IOL-XE *routers* reject `channel-group` (`Invalid channel
-  group number`), so L3 port-channels need an `ioll2-xe` at both ends. ~60 s after boot the PnP agent adds
-  `no logging console` to IOL routers and switches (use `show logging`).
+  group number`), so L3 port-channels need an `ioll2-xe` at both ends.
+- **pyATS turns off console logging:** on connect, Unicon runs `no logging console` (plus `exec-timeout 0`) on IOL
+  devices, logged as `%SYS-4-LOG_CONFIG_CHANGE` and `PnP Discovery stopped (Config Wizard)`. A node that pyATS never
+  touched keeps console logging on (verified 2026-11-02), so labs need no fix. While testing, read `show logging`
+  and don't capture `no logging console` into solution configs.
 - **Annotation `border_style` differs by path:** CML's own file format (the import API and the Lab Repository indexer)
   only accepts `''` (solid), `'2,2'` (dotted) or `'4,2'` (dashed). The MCP `create_full_lab_topology` tool
   wants `solid`/`dotted`/`dashed` instead. Committed `.yaml` files must use CML's form, which `validate.py` checks. A

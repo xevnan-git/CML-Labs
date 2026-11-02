@@ -284,5 +284,3 @@ stopped). With every node running, Et0/0 and Et0/1 forward 10, 20, 30, 99 as wel
   every minute and traffic just leaks between VLANs.
 - `switchport mode trunk` shows Mode **on** in `show interfaces trunk` whether or not `nonegotiate` is set. Only
   `show dtp interface` tells you whether DTP is going out.
-- About 60 s after boot the PnP agent ("Config Wizard") adds `no logging console` to IOL routers and switches. Use
-  `show logging` instead of waiting for messages on the console, or re-enable with `logging console`.

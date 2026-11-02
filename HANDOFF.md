@@ -10,17 +10,34 @@ Every exam topic gets two labs:
 
 The user understands CCNP concepts but has seen little of it running, so labs teach by doing. Labs are built **on demand**: the user names the next topic.
 
-## Current status (2026-10-29)
+## Current status (2026-11-02)
 - **Repo:** https://github.com/xevnan-git/CML-Labs, branch `main`, everything pushed. Local checkout: `C:\Claude\CML-Labs`.
-- **Built:** one pilot pair, ENCOR 3.2.b OSPFv2 multi-area (`labs/encor/3-infrastructure/ospf/`):
-  - `[LEARN] ENCOR 3.2.b OSPF Multi-Area`
-  - `[TSHOOT] ENCOR 3.2.b OSPF Multi-Area Adjacency`
-  - Both are tested with real pyATS output in 5-node chunks and appear in CML's Sample Labs.
-  - Only PC1↔PC2 end to end is untested, because it needs all 8 nodes running at once.
+- **Built (all dev-tested in 5-node chunks; none yet run in full on the 20-node server):**
+
+  | Blueprint | Lab | Folder |
+  |---|---|---|
+  | ENCOR 3.2.b | `[LEARN] ENCOR 3.2.b OSPF Multi-Area` | `labs/encor/3-infrastructure/ospf/learn-multiarea` |
+  | ENCOR 3.2.b | `[TSHOOT] ENCOR 3.2.b OSPF Multi-Area Adjacency` | `…/ospf/ts-multiarea-adjacency` |
+  | ENCOR 3.1.a+b | `[TSHOOT] ENCOR 3.1.a-b Trunking and EtherChannel` (4 faults) | `…/switching/ts-trunk-etherchannel` |
+  | ENCOR 3.1.a | `[TSHOOT] ENCOR 3.1.a 802.1Q Trunking and DTP` (5 faults) | `…/switching/ts-trunking` |
+  | ENCOR 3.1.b | `[TSHOOT] ENCOR 3.1.b EtherChannel (LACP, PAgP, L3)` (5 faults) | `…/switching/ts-etherchannel` |
+  | ENCOR 3.1.c | `[LEARN] ENCOR 3.1.c Spanning Tree (RSTP, MST, Guards)` | `…/switching/learn-stp` |
+  | ENCOR 3.1.c | `[TSHOOT] ENCOR 3.1.c MST and STP Guards` (4 faults) | `…/switching/ts-mst-guards` |
+
+  Each solution lists the few end-to-end checks that couldn't run under the 5-node limit, marked **Expected**.
 - **Backlog:** `blueprint/encor-v1.2.md` and `blueprint/enarsi-v1.1.md` list every exam topic with plan and status.
 - **Tooling works:**
-  - CML MCP (cml-mcp with pyATS) runs on an Ubuntu VM over SSH, so `send_cli_command` works on IOL-XE and Alpine nodes.
-  - Scripts: `tools/validate.py`, `tools/sync_notes.py`, `tools/import_lab.py`, and one builder per lab pair in `tools/builders/`.
+  - CML MCP (cml-mcp with pyATS) runs on an Ubuntu VM over SSH, so `send_cli_command` works on IOL-XE, IOL-L2-XE and Alpine nodes.
+  - Scripts: `tools/validate.py`, `tools/sync_notes.py`, `tools/import_lab.py`, and one builder per lab (pair) in `tools/builders/`.
+
+## User preferences (from feedback)
+- **Guide layout, scenario first:** Ticket / objectives → Done when → Rules → Intended design → Expected behavior,
+  then `---` and a `# Reference` section (lab access, topology, addressing) at the bottom. The templates follow this.
+  The OSPF guides predate it and were deliberately left alone.
+- **Troubleshooting difficulty:** about 4 faults for a combined topic, **5 for a single topic**, with some faults
+  layered so that fixing one reveals the next. Larger topologies (6–8 nodes) are fine.
+- A TS Guide's Rules must not hint (e.g. no "re-check PC1 after every change").
+- Learn labs can be skipped when the user says so (3.1.a/b were TS-only by request).
 
 ## Environment
 - **Dev CML server:** CML 2.10.1 on VMware, unregistered eval license (expires 2027-01-27). It **enforces 5 running licensed nodes** (unmanaged switches don't count).
@@ -55,11 +72,18 @@ The user understands CCNP concepts but has seen little of it running, so labs te
 - **IOL config order:** in IOL startup configs, anything that references an interface (e.g. `route-map … match interface`) must come *after* that interface.
 - **Hints in CML:** don't put hints or solutions in a troubleshooting Guide or the CML notes.
 - **Timeouts:** the first pyATS command to a freshly booted node can time out. Retry once.
+- **Platform traps (detail in `CLAUDE.md`):** IOL-L2 has `ip routing` on by default (L2-only switches need
+  `no ip routing` or `ip default-gateway` is ignored); IOL-XE routers can't do EtherChannel; IOL-L2 has no
+  `min-links` and drops `lacp max-bundle`; pyATS turns off console logging when it connects (labs are fine).
+- **Unverified claims:** test every fault's symptom live before writing it up. If a fault behaves
+  non-deterministically (e.g. LACP picking a link by race), replace it.
 
 ## Open items
-- Full 8-node run of the OSPF pilot on the 20-node server (the user will do this and give feedback on the Guide format).
+- Full runs of every lab on the 20-node server (the user will do this and give feedback on the Guide format).
 - `tools/cml_teardown_lab.py`: the user will add it. Restrict it to project-tagged labs and `.env`.
 - Unverified: whether `external_connector` counts against the license. Recheck now and then whether an ENARSI v1.2 blueprint exists.
 
 ## Very next step
-Ask the user whether they've run the OSPF pilot on the 20-node server, and fold any feedback into the templates. Then ask which backlog topic to build next and follow the workflow above.
+Build **ENCOR 3.2.c eBGP** (learn + tshoot): eBGP between directly connected neighbors, best-path selection and
+neighbor states. Show the user the plan first (topology, Guide steps, fault list), then follow the workflow above.
+Also ask whether they've run any lab on the 20-node server yet and fold in feedback.

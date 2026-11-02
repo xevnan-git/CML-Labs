@@ -20,6 +20,8 @@ Every lab fits within a **20-node** CML license and uses only IOL-XE, IOL-L2-XE,
 | Exam | Blueprint | Topic | Learning lab | Troubleshooting lab |
 |---|---|---|---|---|
 | ENCOR | 3.1.a, 3.1.b | 802.1Q trunking (DTP, VTP domain) + EtherChannel (LACP, PAgP, misconfig guard) | — | [ts-trunk-etherchannel](labs/encor/3-infrastructure/switching/ts-trunk-etherchannel/) |
+| ENCOR | 3.1.a | 802.1Q trunking: router-on-a-stick, DTP modes, native VLAN, transit VLANs | — | [ts-trunking](labs/encor/3-infrastructure/switching/ts-trunking/) |
+| ENCOR | 3.1.b | EtherChannel: LACP, PAgP, `mode on`, member consistency, L3 port-channel | — | [ts-etherchannel](labs/encor/3-infrastructure/switching/ts-etherchannel/) |
 | ENCOR | 3.1.c | Spanning tree: Rapid PVST+, MST regions, PortFast, BPDU guard, root guard | [learn-stp](labs/encor/3-infrastructure/switching/learn-stp/) | [ts-mst-guards](labs/encor/3-infrastructure/switching/ts-mst-guards/) |
 | ENCOR | 3.2.b | OSPFv2 multi-area (DR/BDR, p2p, passive, summarization, filtering, ASBR) | [learn-multiarea](labs/encor/3-infrastructure/ospf/learn-multiarea/) | [ts-multiarea-adjacency](labs/encor/3-infrastructure/ospf/ts-multiarea-adjacency/) |
 

@@ -82,7 +82,10 @@ dnsmasq, chrome, firefox, splunk, thousandeyes). Topics that need these are mark
 - **IOL-L2 gotchas (verified 2026-11-01):** `ip routing` is on by default (hidden from the running config), so
   `ip default-gateway` is ignored: L2-only switches need `no ip routing` before it. Default STP mode is
   `rapid-pvst`. There's no `show pagp`; use `show etherchannel <n> detail`. IOL MACs (`aabb.cc00.XX00`) come from
-  the node ID, so default root elections differ between servers.
+  the node ID, so default root elections differ between servers. EtherChannel: no `port-channel min-links`;
+  `lacp max-bundle` is accepted but silently dropped. IOL-XE *routers* reject `channel-group` (`Invalid channel
+  group number`), so L3 port-channels need an `ioll2-xe` at both ends. ~60 s after boot the PnP agent adds
+  `no logging console` to IOL routers and switches (use `show logging`).
 - **Annotation `border_style` differs by path:** CML's own file format (the import API and the Lab Repository indexer)
   only accepts `''` (solid), `'2,2'` (dotted) or `'4,2'` (dashed). The MCP `create_full_lab_topology` tool
   wants `solid`/`dotted`/`dashed` instead. Committed `.yaml` files must use CML's form, which `validate.py` checks. A

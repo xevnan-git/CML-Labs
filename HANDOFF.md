@@ -10,7 +10,7 @@ Every exam topic gets two labs:
 
 The user understands CCNP concepts but has seen little of it running, so labs teach by doing. Labs are built **on demand**: the user names the next topic.
 
-## Current status (2026-11-02)
+## Current status (2026-11-02, updated after 3.2.c)
 - **Repo:** https://github.com/xevnan-git/CML-Labs, branch `main`, everything pushed. Local checkout: `C:\Claude\CML-Labs`.
 - **Built (all dev-tested in 5-node chunks; none yet run in full on the 20-node server):**
 
@@ -77,15 +77,55 @@ The user understands CCNP concepts but has seen little of it running, so labs te
 - **Platform traps (detail in `CLAUDE.md`):** IOL-L2 has `ip routing` on by default (L2-only switches need
   `no ip routing` or `ip default-gateway` is ignored); IOL-XE routers can't do EtherChannel; IOL-L2 has no
   `min-links` and drops `lacp max-bundle`; pyATS turns off console logging when it connects (labs are fine).
+- **BGP traps (found building 3.2.c):** `network 192.168.10.0 mask 255.255.0.0` is *rejected* (host bits set);
+  use a valid-but-unmatched prefix for a "not advertised" fault. After boot, BGP holds paths without `>` for up to
+  ~2 min while a neighbor never comes up (read-only mode). `show ip bgp <pfx> best-path-reason` works on IOL-XE
+  17.18. Policy changes need `clear ip bgp … soft in|out`, and the result lags the command by a few seconds.
+- **pyATS on Alpine:** run `traceroute -n -q 1 -w 1` (and `ping -W 1`); default timeouts can exceed the tool call's.
 - **Unverified claims:** test every fault's symptom live before writing it up. If a fault behaves
   non-deterministically (e.g. LACP picking a link by race), replace it.
 
 ## Open items
-- Full runs of every lab on the 20-node server (the user will do this and give feedback on the Guide format).
+- Full runs of every lab on the 20-node server. As of 2026-11-01 the user hasn't run any yet ("the briefs look
+  good"); they'll give feedback on the Guide format once they do. No need to ask every session.
+- 3.2.c YAMLs: CML import check (`POST /api/v0/import` from the VM) and Lab Repository refresh not yet run. The
+  local Windows checkout has no `.env`, so do it from the VM or ask the user.
 - `tools/cml_teardown_lab.py`: the user will add it. Restrict it to project-tagged labs and `.env`.
 - Unverified: whether `external_connector` counts against the license. Recheck now and then whether an ENARSI v1.2 blueprint exists.
 
 ## Very next step
-3.2.c eBGP is built (learn + ts, dev-tested 2026-11-02; YAML import check via the VM still to do). Ask the user
-which topic is next (the backlog suggests 3.2.a EIGRP vs OSPF or ENARSI BGP topics), and whether they've run any
-lab on the 20-node server yet, so their feedback can be folded in.
+Build **ENCOR 5.2 infrastructure security: ACLs and CoPP**, the user's pick (2026-11-01). It jumps ahead of
+3.2.a / 4.x / 5.1. It's **three topics, each with a learn lab and a ts lab, so 6 labs**, split the way 3.1.a / 3.1.b /
+3.1.a-b were (but this time with learn labs too):
+
+| Topic | Learn | TS (faults) | Folder |
+|---|---|---|---|
+| 5.2.a ACLs | `[LEARN] ENCOR 5.2.a ACLs` | `[TSHOOT] ENCOR 5.2.a ACLs` (5) | `labs/encor/5-security/infra-security/learn-acl`, `ts-acl` |
+| 5.2.b CoPP | `[LEARN] ENCOR 5.2.b CoPP` | `[TSHOOT] ENCOR 5.2.b CoPP` (5) | `…/infra-security/learn-copp`, `ts-copp` |
+| 5.2.a-b combined | `[LEARN] ENCOR 5.2.a-b ACLs and CoPP` | `[TSHOOT] ENCOR 5.2.a-b ACLs and CoPP` (4) | `…/infra-security/learn-acl-copp`, `ts-acl-copp` |
+
+Titles and folder names are a proposal. Confirm them with the user along with the plan. File names follow the
+convention, e.g. `encor-5.2.a-infra-security-learn-acl.yaml` and `encor-5.2.ab-infra-security-ts-acl-copp.yaml`
+(matching `encor-3.1.ab-…`). Probably one builder per topic, or one shared builder like
+`encor_3_1_ab_trunk_etherchannel.py`.
+
+Scope:
+- **Exam depth:** the backlog maps ENCOR 5.2.a → **ENARSI 3.2.a** (standard, extended, named, *time-based* ACLs)
+  and 5.2.b → **ENARSI 3.3** (CoPP for Telnet, SSH, HTTP(S), SNMP, EIGRP, OSPF, BGP). Build to ENARSI depth so the
+  labs cover both exams, then update both blueprint rows.
+- **ACL ideas:** standard vs extended placement, wildcard masks, implicit deny (and the routing protocol it kills),
+  named ACL sequence-number edits, `access-class` on vty, `established`, time-range, hit counters / `log`.
+- **CoPP ideas:** class-maps by ACL for management (SSH/Telnet), routing (OSPF/BGP) and ICMP;
+  `police` per class; `class-default`; verify with `show policy-map control-plane` counters; show a routing
+  protocol dying when its class is policed too hard or left out of a permit.
+- **Combined:** an edge router with interface ACLs *and* CoPP, where an ACL change and a CoPP class interact, for
+  example traffic permitted by the interface ACL but dropped by CoPP.
+- **Platform checks first:**
+  - Confirm on IOL-XE 17.18 that `control-plane` / `service-policy input` is accepted and that the CoPP counters
+    actually increment. If it doesn't work, try `iosv` and say why in the README.
+  - Check what the Alpine image has for test traffic (ssh/telnet/curl clients). Use `ubuntu` SRV nodes for
+    SNMP/HTTP servers only if needed.
+  - IOL-XE time-range needs a clock. Check that `show clock` and `periodic` behave without NTP.
+- **Size:** keep each topology at 5 or fewer licensed nodes if possible, so it tests in one pass.
+
+Follow the workflow above: show the user the plan (topologies, Guide steps, fault lists) before building.

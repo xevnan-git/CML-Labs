@@ -58,7 +58,7 @@ Legend: see [README](README.md).
 |---|---|---|---|---|---|
 | 5.1.a | Lines and local user authentication | learn + ts | backlog | | |
 | 5.1.b | Authentication and authorization using AAA | → ENARSI 3.1 | backlog | | |
-| 5.2.a | ACLs | learn + ts (+ combined 5.2.a-b) | next | | User pick 2026-11-01; build to ENARSI 3.2.a depth (see HANDOFF.md) |
+| 5.2.a | ACLs | learn + ts (+ combined 5.2.a-b) | done (dev-tested); combined pair next | [learn-acl](../labs/encor/5-security/infra-security/learn-acl/), [ts-acl](../labs/encor/5-security/infra-security/ts-acl/) | 5 nodes, tested whole; built to ENARSI 3.2.a depth (standard, extended, named, time-based) |
 | 5.2.b | CoPP | learn + ts (+ combined 5.2.a-b) | next | | User pick 2026-11-01; build to ENARSI 3.3 depth (see HANDOFF.md) |
 | 5.3 | REST API security | concept | backlog | | Demo on the 4.6 lab (HTTPS, auth headers) |
 | 5.4.a–d | Threat defense, endpoint security, NGFW, TrustSec/MACsec | concept | backlog | | |

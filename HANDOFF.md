@@ -10,7 +10,7 @@ Every exam topic gets two labs:
 
 The user understands CCNP concepts but has seen little of it running, so labs teach by doing. Labs are built **on demand**: the user names the next topic.
 
-## Current status (2026-11-02, updated after 3.2.c)
+## Current status (2026-11-02, updated after 5.2.a)
 - **Repo:** https://github.com/xevnan-git/CML-Labs, branch `main`, everything pushed. Local checkout: `C:\Claude\CML-Labs`.
 - **Built (all dev-tested in 5-node chunks; none yet run in full on the 20-node server):**
 
@@ -25,6 +25,8 @@ The user understands CCNP concepts but has seen little of it running, so labs te
   | ENCOR 3.1.c | `[TSHOOT] ENCOR 3.1.c MST and STP Guards` (4 faults) | `…/switching/ts-mst-guards` |
   | ENCOR 3.2.c | `[LEARN] ENCOR 3.2.c eBGP Dual-Homed Edge` | `…/bgp/learn-ebgp` |
   | ENCOR 3.2.c | `[TSHOOT] ENCOR 3.2.c eBGP Peering and Best Path` (5 faults, all on R1) | `…/bgp/ts-ebgp` |
+  | ENCOR 5.2.a | `[LEARN] ENCOR 5.2.a ACLs` (also ENARSI 3.2.a) | `labs/encor/5-security/infra-security/learn-acl` |
+  | ENCOR 5.2.a | `[TSHOOT] ENCOR 5.2.a ACLs` (5 faults, 4 on R1, 1 on R2) | `…/infra-security/ts-acl` |
 
   Each solution lists the few end-to-end checks that couldn't run under the 5-node limit, marked **Expected**.
 - **Backlog:** `blueprint/encor-v1.2.md` and `blueprint/enarsi-v1.1.md` list every exam topic with plan and status.
@@ -88,44 +90,50 @@ The user understands CCNP concepts but has seen little of it running, so labs te
 ## Open items
 - Full runs of every lab on the 20-node server. As of 2026-11-01 the user hasn't run any yet ("the briefs look
   good"); they'll give feedback on the Guide format once they do. No need to ask every session.
-- 3.2.c YAMLs: CML import check (`POST /api/v0/import` from the VM) and Lab Repository refresh not yet run. The
+- 3.2.c and 5.2.a YAMLs: CML import check (`POST /api/v0/import` from the VM) and Lab Repository refresh not yet run. The
   local Windows checkout has no `.env`, so do it from the VM or ask the user.
 - `tools/cml_teardown_lab.py`: the user will add it. Restrict it to project-tagged labs and `.env`.
 - Unverified: whether `external_connector` counts against the license. Recheck now and then whether an ENARSI v1.2 blueprint exists.
 
 ## Very next step
-Build **ENCOR 5.2 infrastructure security: ACLs and CoPP**, the user's pick (2026-11-01). It jumps ahead of
-3.2.a / 4.x / 5.1. It's **three topics, each with a learn lab and a ts lab, so 6 labs**, split the way 3.1.a / 3.1.b /
-3.1.a-b were (but this time with learn labs too):
+Continue **ENCOR 5.2 infrastructure security**, the user's pick (2026-11-01). The user approved this plan on
+2026-11-02 ("Yes, start with ACLs"). 5.2.a is done. Next: **5.2.b CoPP**, then the **5.2.a-b combined** pair.
 
 | Topic | Learn | TS (faults) | Folder |
 |---|---|---|---|
-| 5.2.a ACLs | `[LEARN] ENCOR 5.2.a ACLs` | `[TSHOOT] ENCOR 5.2.a ACLs` (5) | `labs/encor/5-security/infra-security/learn-acl`, `ts-acl` |
+| 5.2.a ACLs | done | done | `labs/encor/5-security/infra-security/learn-acl`, `ts-acl` |
 | 5.2.b CoPP | `[LEARN] ENCOR 5.2.b CoPP` | `[TSHOOT] ENCOR 5.2.b CoPP` (5) | `…/infra-security/learn-copp`, `ts-copp` |
 | 5.2.a-b combined | `[LEARN] ENCOR 5.2.a-b ACLs and CoPP` | `[TSHOOT] ENCOR 5.2.a-b ACLs and CoPP` (4) | `…/infra-security/learn-acl-copp`, `ts-acl-copp` |
 
-Titles and folder names are a proposal. Confirm them with the user along with the plan. File names follow the
-convention, e.g. `encor-5.2.a-infra-security-learn-acl.yaml` and `encor-5.2.ab-infra-security-ts-acl-copp.yaml`
-(matching `encor-3.1.ab-…`). Probably one builder per topic, or one shared builder like
-`encor_3_1_ab_trunk_etherchannel.py`.
+File names: `encor-5.2.b-infra-security-learn-copp.yaml`, `encor-5.2.ab-infra-security-ts-acl-copp.yaml` etc.
+Builder pattern: `tools/builders/encor_5_2_a_acl.py` (modes clean / final / design / ts, whole-lab `--chunks`).
+Build CoPP to ENARSI 3.3 depth (Telnet, SSH, HTTP(S), SNMP, EIGRP, OSPF, BGP classes), then update both
+blueprint rows. Platform facts are in CLAUDE.md (CoPP works on IOL-XE; class-default drop kills ARP; `drop`
+keyword rejected; SSH hangs when policed at 32 kbps).
 
-Scope:
-- **Exam depth:** the backlog maps ENCOR 5.2.a → **ENARSI 3.2.a** (standard, extended, named, *time-based* ACLs)
-  and 5.2.b → **ENARSI 3.3** (CoPP for Telnet, SSH, HTTP(S), SNMP, EIGRP, OSPF, BGP). Build to ENARSI depth so the
-  labs cover both exams, then update both blueprint rows.
-- **ACL ideas:** standard vs extended placement, wildcard masks, implicit deny (and the routing protocol it kills),
-  named ACL sequence-number edits, `access-class` on vty, `established`, time-range, hit counters / `log`.
-- **CoPP ideas:** class-maps by ACL for management (SSH/Telnet), routing (OSPF/BGP) and ICMP;
-  `police` per class; `class-default`; verify with `show policy-map control-plane` counters; show a routing
-  protocol dying when its class is policed too hard or left out of a permit.
-- **Combined:** an edge router with interface ACLs *and* CoPP, where an ACL change and a CoPP class interact, for
-  example traffic permitted by the interface ACL but dropped by CoPP.
-- **Platform checks first:**
-  - Confirm on IOL-XE 17.18 that `control-plane` / `service-policy input` is accepted and that the CoPP counters
-    actually increment. If it doesn't work, try `iosv` and say why in the README.
-  - Check what the Alpine image has for test traffic (ssh/telnet/curl clients). Use `ubuntu` SRV nodes for
-    SNMP/HTTP servers only if needed.
-  - IOL-XE time-range needs a clock. Check that `show clock` and `periodic` behave without NTP.
-- **Size:** keep each topology at 5 or fewer licensed nodes if possible, so it tests in one pass.
+**Approved topology (CoPP and combined, 5 licensed nodes):**
+`PC1 (mgmt LAN 192.168.10.0/24) ── R2 ══OSPF══ R1 ══eBGP══ ISP1 ── PC2 (internet host)`. R1 is the protected edge.
 
-Follow the workflow above: show the user the plan (topologies, Guide steps, fault lists) before building.
+**5.2.b learn:** classify control-plane traffic into routing (OSPF, BGP), management (SSH, Telnet, HTTP(S)),
+monitoring (SNMP, ICMP), a catch-all IP class and class-default; police per class; apply and watch the counters
+during a ping flood from PC2; break it on purpose (OSPF left out of the routing class → adjacency dies;
+class-default dropping → ARP dies; SSH policed too low → SSH hangs while Telnet works); show why the BGP ACL needs
+`eq bgp` as source *and* destination port. SNMP is classified but there's no SNMP client to test it.
+
+**5.2.b TS (5):** (1) BGP ACE matches only destination port 179 → session stuck Active (R1 must be the active
+side, e.g. ISP1 passive); (2) OSPF ACE matches only multicast → hellos pass, unicast DBD dropped → stuck EXSTART;
+(3) management ACL has the wrong source subnet → admin locked out; (4) revealed by 3: SSH policed too low → hangs;
+(5) `match-all` class-map that can never match → pings to R1 fail. The catch-all-IP class drops (police with
+conform-action drop) so unclassified traffic dies; class-default stays permissive so ARP survives.
+
+**5.2.a-b combined learn:** infrastructure ACL (iACL) inbound on R1's internet interface (anti-spoof, protect R1's
+own addresses, permit transit), CoPP behind it, vty `access-class` as the third layer; show processing order and
+"permitted by the iACL, dropped by CoPP".
+
+**5.2.a-b combined TS (4):** (1) anti-spoof `deny 10.0.0.0 0.255.255.255` also blocks the ISP's BGP peer
+address → BGP down; (2) no transit permit in the iACL → PC1 can't reach the internet; (3) iACL and access-class
+allow SSH but CoPP's management class only matches Telnet; (4) `match-all` trap on the ICMP class → pings to R1's
+loopback fail.
+
+Faults 1–2 of CoPP TS and fault 1 of the combined TS hinge on exact behavior: verify live, and replace any that
+isn't deterministic.

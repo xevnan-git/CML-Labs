@@ -85,6 +85,16 @@ dnsmasq, chrome, firefox, splunk, thousandeyes). Topics that need these are mark
   the node ID, so default root elections differ between servers. EtherChannel: no `port-channel min-links`;
   `lacp max-bundle` is accepted but silently dropped. IOL-XE *routers* reject `channel-group` (`Invalid channel
   group number`), so L3 port-channels need an `ioll2-xe` at both ends.
+- **CoPP / ACL on IOL-XE 17.18 (verified 2026-11-02):** `control-plane` + `service-policy input` works and
+  `show policy-map control-plane` counters increment. Under a control-plane class `drop` is rejected; use
+  `police <cir> conform-action drop exceed-action drop`. **ARP is classified into class-default**: a dropping
+  class-default kills ARP (PC shows INCOMPLETE). A management class policed at 32 kbps (bc 1500) hangs SSH 3/3
+  (key-exchange packets exceed bc) while Telnet works; 256 kbps is fine. `crypto key generate rsa modulus 2048` in a
+  startup config works. The clock boots from the hardware calendar (UTC, no NTP); `clock set` works and flips
+  `time-range` state. Alpine has `ssh`, `telnet`, `nc`, `wget` (no curl/nmap/snmpget) and runs `sshd`; for a web
+  server use `/usr/sbin/httpd -p 80 -h <dir>` (busybox-extras; the `busybox httpd` applet is missing). An
+  **outbound** interface ACL whose lines never match hits the implicit deny for the router's own packets too, ARP
+  replies included (`0 packets output`), unlike most hardware platforms.
 - **pyATS turns off console logging:** on connect, Unicon runs `no logging console` (plus `exec-timeout 0`) on IOL
   devices, logged as `%SYS-4-LOG_CONFIG_CHANGE` and `PnP Discovery stopped (Config Wizard)`. A node that pyATS never
   touched keeps console logging on (verified 2026-11-02), so labs need no fix. While testing, read `show logging`

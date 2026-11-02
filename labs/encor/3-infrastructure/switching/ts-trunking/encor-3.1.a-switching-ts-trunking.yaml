@@ -1,0 +1,822 @@
+lab:
+  title: '[TSHOOT] ENCOR 3.1.a 802.1Q Trunking and DTP'
+  description: 'Troubleshooting: router-on-a-stick campus after a VLAN rollout — three of four PCs and one switch are unreachable.'
+  notes: |
+    # 802.1Q Trunking and DTP — Troubleshooting Lab
+
+    > **Blueprint:** ENCOR 3.1.a — Troubleshoot static and dynamic 802.1q trunking protocols
+    > **Mode:** Troubleshooting · **Nodes:** 8 licensed (1 router, 3 switches, 4 PCs) · **Faults:** 5 · **Difficulty:** 3 of 3
+
+    ## Ticket
+
+    > **#5214 — Finance VLAN rollout broke three of four desks**
+    > "Last night we added VLAN 30 (Finance) to the campus and tidied up the trunk configs while we were in there.
+    > This morning only PC1 (Sales, on SW2) can reach its gateway. PC2 (Engineering, SW2), PC3 (Finance, SW3) and PC4
+    > (Sales, SW3) can't reach anything. The NOC has also lost management of SW2 and SW3 (`192.168.99.202` and `.203`).
+    > Every link light is green and nobody has touched the cabling."
+
+    ## Done when
+    - From each PC, `ping -c 3 <its gateway>` succeeds: PC1 and PC4 → 192.168.10.1, PC2 → 192.168.20.1,
+      PC3 → 192.168.30.1.
+    - `PC3:~$ ping -c 3 192.168.10.10` (Finance to Sales, routed by R1) succeeds.
+    - `R1# ping 192.168.99.202` and `R1# ping 192.168.99.203` succeed.
+    - On SW1, `show interfaces trunk` lists e0/0, e0/1 and e0/2 as **trunking**, each with native VLAN **999**, and
+      VLANs **10, 20, 30, 99** in all three of its VLAN lists (allowed, active, forwarding).
+    - Each link still trunks the way the design below says (the right Mode column on both ends).
+
+    ## Rules
+    - Fix with the smallest change that restores the intended design. Don't hard-code a dynamic link as a static
+      trunk, and don't change the native VLAN plan.
+    - There's more than one fault, some symptoms have more than one cause, and fixing one may reveal the next.
+    - Hints and the full solution are in the lab repository (`solution/README.md` in this lab's folder), not in CML.
+
+    ## Intended design
+    - **VLANs** (defined on every switch, VTP **transparent**, domain `LAB`): 10 SALES, 20 ENGINEERING, 30 FINANCE,
+      99 MGMT, 999 NATIVE-UNUSED.
+    - **R1** is router-on-a-stick: subinterfaces on e0/0 for VLANs 10, 20, 30 and 99 (address `.1` in each), and
+      e0/0.999 as the **native** VLAN subinterface (no IP).
+    - **Every trunk** is 802.1Q, allows only VLANs **10, 20, 30, 99**, and uses native VLAN **999**.
+    - **Trunk links:**
+
+      | Link | Ports | How it trunks |
+      |---|---|---|
+      | R1–SW1 | R1 e0/0 ↔ SW1 e0/0 | **static**: SW1 `mode trunk` + `nonegotiate` (a router doesn't speak DTP) |
+      | SW1–SW2 | SW1 e0/1 ↔ SW2 e0/0 | **DTP**: SW1 `dynamic desirable`, SW2 `dynamic auto` |
+      | SW1–SW3 | SW1 e0/2 ↔ SW3 e0/0 | **DTP**: SW1 `mode trunk` (still sending DTP), SW3 `dynamic auto` |
+
+    - **Access ports** (PortFast): SW2 e1/0 → PC1 (VLAN 10), SW2 e1/1 → PC2 (VLAN 20), SW3 e1/0 → PC3 (VLAN 30),
+      SW3 e1/1 → PC4 (VLAN 10).
+    - **Management:** each switch has a VLAN 99 SVI, no IP routing, default gateway 192.168.99.1 (R1).
+
+    ## Expected behavior (healthy network)
+    - `show dtp interface` on SW2 e0/0 and SW3 e0/0 shows DTP packets being received, and both ports show Mode `auto`,
+      Status `trunking` in `show interfaces trunk`.
+    - No `%CDP-4-NATIVE_VLAN_MISMATCH` messages anywhere.
+    - Every PC can reach its gateway and every other PC; R1 can ping every switch's VLAN 99 address.
+
+    ---
+
+    # Reference
+
+    ## Lab access
+
+    | Node | Type | Username | Password | Enable |
+    |---|---|---|---|---|
+    | R1 | IOL-XE router | cisco | cisco | cisco |
+    | SW1–SW3 | IOL-L2-XE switch | cisco | cisco | cisco |
+    | PC1–PC4 | Alpine Linux | cisco | cisco | `sudo -i` |
+
+    Open a console from the node in CML (right-click → **Console**). Routers and switches drop you straight into
+    privileged EXEC. Each node also has a label on the CML canvas with its login and addresses.
+
+    ## Topology
+
+    ```
+                               R1   router-on-a-stick
+                               | e0/0
+                               |  802.1Q trunk (static)
+                               | e0/0
+                              SW1   distribution
+                       e0/1 .'   `. e0/2
+                    (DTP) .'       `. (DTP)
+                        .'           `.
+                  e0/0 '               ` e0/0
+                    SW2                 SW3
+               e1/0 |  | e1/1      e1/0 |  | e1/1
+                   PC1 PC2             PC3 PC4
+                VLAN 10 VLAN 20    VLAN 30 VLAN 10
+    ```
+
+    ## Addressing (as designed)
+
+    | Node | Interface | IPv4 | Notes |
+    |---|---|---|---|
+    | R1 | Lo0 | 10.255.255.1/32 | |
+    | R1 | e0/0.10 / .20 / .30 / .99 | 192.168.10.1 / 20.1 / 30.1 / 99.1 (/24) | gateways |
+    | R1 | e0/0.999 | none | native VLAN 999 |
+    | SW1 | Vlan99 | 192.168.99.201/24 | default-gateway 192.168.99.1 |
+    | SW2 | Vlan99 | 192.168.99.202/24 | default-gateway 192.168.99.1 |
+    | SW3 | Vlan99 | 192.168.99.203/24 | default-gateway 192.168.99.1 |
+    | PC1 | eth0 | 192.168.10.10/24, gw .1 | SW2 e1/0, VLAN 10 |
+    | PC2 | eth0 | 192.168.20.10/24, gw .1 | SW2 e1/1, VLAN 20 |
+    | PC3 | eth0 | 192.168.30.10/24, gw .1 | SW3 e1/0, VLAN 30 |
+    | PC4 | eth0 | 192.168.10.11/24, gw .1 | SW3 e1/1, VLAN 10 |
+  version: 0.3.0
+nodes:
+- id: n0
+  label: R1
+  x: 0
+  y: -360
+  node_definition: iol-xe
+  image_definition: iol-xe-17-18-02
+  interfaces:
+  - id: i0
+    label: Loopback0
+    type: loopback
+  - id: i1
+    label: Ethernet0/0
+    type: physical
+    slot: 0
+  - id: i2
+    label: Ethernet0/1
+    type: physical
+    slot: 1
+  - id: i3
+    label: Ethernet0/2
+    type: physical
+    slot: 2
+  - id: i4
+    label: Ethernet0/3
+    type: physical
+    slot: 3
+  configuration:
+  - name: ios_config.txt
+    content: |
+      hostname R1
+      no ip domain lookup
+      ip domain name lab.local
+      enable secret cisco
+      username cisco privilege 15 secret cisco
+      !
+      interface Loopback0
+       ip address 10.255.255.1 255.255.255.255
+      !
+      interface Ethernet0/0
+       description trunk to SW1 e0/0
+       no ip address
+       no shutdown
+      !
+      interface Ethernet0/0.10
+       encapsulation dot1Q 10
+       ip address 192.168.10.1 255.255.255.0
+      !
+      interface Ethernet0/0.20
+       encapsulation dot1Q 200
+       ip address 192.168.20.1 255.255.255.0
+      !
+      interface Ethernet0/0.30
+       encapsulation dot1Q 30
+       ip address 192.168.30.1 255.255.255.0
+      !
+      interface Ethernet0/0.99
+       encapsulation dot1Q 99
+       ip address 192.168.99.1 255.255.255.0
+      !
+      interface Ethernet0/0.999
+       description native VLAN (no IP)
+       encapsulation dot1Q 999 native
+      !
+      interface Ethernet0/1
+       no ip address
+       shutdown
+      !
+      interface Ethernet0/2
+       no ip address
+       shutdown
+      !
+      interface Ethernet0/3
+       no ip address
+       shutdown
+      !
+      line con 0
+       exec-timeout 0 0
+       logging synchronous
+       privilege level 15
+      line vty 0 4
+       login local
+       transport input ssh telnet
+      !
+      end
+- id: n1
+  label: SW1
+  x: 0
+  y: -160
+  node_definition: ioll2-xe
+  image_definition: ioll2-xe-17-18-02
+  interfaces:
+  - id: i0
+    label: Loopback0
+    type: loopback
+  - id: i1
+    label: Ethernet0/0
+    type: physical
+    slot: 0
+  - id: i2
+    label: Ethernet0/1
+    type: physical
+    slot: 1
+  - id: i3
+    label: Ethernet0/2
+    type: physical
+    slot: 2
+  - id: i4
+    label: Ethernet0/3
+    type: physical
+    slot: 3
+  - id: i5
+    label: Ethernet1/0
+    type: physical
+    slot: 4
+  - id: i6
+    label: Ethernet1/1
+    type: physical
+    slot: 5
+  - id: i7
+    label: Ethernet1/2
+    type: physical
+    slot: 6
+  - id: i8
+    label: Ethernet1/3
+    type: physical
+    slot: 7
+  configuration:
+  - name: ios_config.txt
+    content: |
+      hostname SW1
+      no ip domain lookup
+      ip domain name lab.local
+      enable secret cisco
+      username cisco privilege 15 secret cisco
+      !
+      vtp domain LAB
+      vtp mode transparent
+      !
+      vlan 10
+       name SALES
+      vlan 20
+       name ENGINEERING
+      vlan 99
+       name MGMT
+      vlan 999
+       name NATIVE-UNUSED
+      !
+      spanning-tree mode rapid-pvst
+      !
+      interface Ethernet0/0
+       description to R1 e0/0 (router-on-a-stick)
+       switchport trunk encapsulation dot1q
+       switchport trunk native vlan 999
+       switchport trunk allowed vlan 10,20,30,99
+       switchport mode trunk
+       switchport nonegotiate
+       no shutdown
+      !
+      interface Ethernet0/1
+       description to SW2 e0/0
+       switchport trunk encapsulation dot1q
+       switchport trunk native vlan 999
+       switchport trunk allowed vlan 10,30,99
+       switchport mode dynamic desirable
+       no shutdown
+      !
+      interface Ethernet0/2
+       description to SW3 e0/0
+       switchport trunk encapsulation dot1q
+       switchport trunk native vlan 999
+       switchport trunk allowed vlan 10,20,30,99
+       switchport mode trunk
+       switchport nonegotiate
+       no shutdown
+      !
+      interface Ethernet0/3
+       shutdown
+      !
+      interface Ethernet1/0
+       shutdown
+      !
+      interface Ethernet1/1
+       shutdown
+      !
+      interface Ethernet1/2
+       shutdown
+      !
+      interface Ethernet1/3
+       shutdown
+      !
+      interface Vlan99
+       ip address 192.168.99.201 255.255.255.0
+       no shutdown
+      !
+      no ip routing
+      ip default-gateway 192.168.99.1
+      !
+      line con 0
+       exec-timeout 0 0
+       logging synchronous
+       privilege level 15
+      line vty 0 4
+       login local
+       transport input ssh telnet
+      !
+      end
+- id: n2
+  label: SW2
+  x: -280
+  y: 80
+  node_definition: ioll2-xe
+  image_definition: ioll2-xe-17-18-02
+  interfaces:
+  - id: i0
+    label: Loopback0
+    type: loopback
+  - id: i1
+    label: Ethernet0/0
+    type: physical
+    slot: 0
+  - id: i2
+    label: Ethernet0/1
+    type: physical
+    slot: 1
+  - id: i3
+    label: Ethernet0/2
+    type: physical
+    slot: 2
+  - id: i4
+    label: Ethernet0/3
+    type: physical
+    slot: 3
+  - id: i5
+    label: Ethernet1/0
+    type: physical
+    slot: 4
+  - id: i6
+    label: Ethernet1/1
+    type: physical
+    slot: 5
+  - id: i7
+    label: Ethernet1/2
+    type: physical
+    slot: 6
+  - id: i8
+    label: Ethernet1/3
+    type: physical
+    slot: 7
+  configuration:
+  - name: ios_config.txt
+    content: |
+      hostname SW2
+      no ip domain lookup
+      ip domain name lab.local
+      enable secret cisco
+      username cisco privilege 15 secret cisco
+      !
+      vtp domain LAB
+      vtp mode transparent
+      !
+      vlan 10
+       name SALES
+      vlan 20
+       name ENGINEERING
+      vlan 30
+       name FINANCE
+      vlan 99
+       name MGMT
+      vlan 999
+       name NATIVE-UNUSED
+      !
+      spanning-tree mode rapid-pvst
+      !
+      interface Ethernet0/0
+       description to SW1 e0/1
+       switchport trunk encapsulation dot1q
+       switchport trunk native vlan 99
+       switchport trunk allowed vlan 10,20,30,99
+       switchport mode dynamic auto
+       no shutdown
+      !
+      interface Ethernet0/1
+       shutdown
+      !
+      interface Ethernet0/2
+       shutdown
+      !
+      interface Ethernet0/3
+       shutdown
+      !
+      interface Ethernet1/0
+       description PC1
+       switchport mode access
+       switchport access vlan 10
+       spanning-tree portfast
+       no shutdown
+      !
+      interface Ethernet1/1
+       description PC2
+       switchport mode access
+       switchport access vlan 20
+       spanning-tree portfast
+       no shutdown
+      !
+      interface Ethernet1/2
+       shutdown
+      !
+      interface Ethernet1/3
+       shutdown
+      !
+      interface Vlan99
+       ip address 192.168.99.202 255.255.255.0
+       no shutdown
+      !
+      no ip routing
+      ip default-gateway 192.168.99.1
+      !
+      line con 0
+       exec-timeout 0 0
+       logging synchronous
+       privilege level 15
+      line vty 0 4
+       login local
+       transport input ssh telnet
+      !
+      end
+- id: n3
+  label: SW3
+  x: 280
+  y: 80
+  node_definition: ioll2-xe
+  image_definition: ioll2-xe-17-18-02
+  interfaces:
+  - id: i0
+    label: Loopback0
+    type: loopback
+  - id: i1
+    label: Ethernet0/0
+    type: physical
+    slot: 0
+  - id: i2
+    label: Ethernet0/1
+    type: physical
+    slot: 1
+  - id: i3
+    label: Ethernet0/2
+    type: physical
+    slot: 2
+  - id: i4
+    label: Ethernet0/3
+    type: physical
+    slot: 3
+  - id: i5
+    label: Ethernet1/0
+    type: physical
+    slot: 4
+  - id: i6
+    label: Ethernet1/1
+    type: physical
+    slot: 5
+  - id: i7
+    label: Ethernet1/2
+    type: physical
+    slot: 6
+  - id: i8
+    label: Ethernet1/3
+    type: physical
+    slot: 7
+  configuration:
+  - name: ios_config.txt
+    content: |
+      hostname SW3
+      no ip domain lookup
+      ip domain name lab.local
+      enable secret cisco
+      username cisco privilege 15 secret cisco
+      !
+      vtp domain LAB
+      vtp mode transparent
+      !
+      vlan 10
+       name SALES
+      vlan 20
+       name ENGINEERING
+      vlan 30
+       name FINANCE
+      vlan 99
+       name MGMT
+      vlan 999
+       name NATIVE-UNUSED
+      !
+      spanning-tree mode rapid-pvst
+      !
+      interface Ethernet0/0
+       description to SW1 e0/2
+       switchport trunk encapsulation dot1q
+       switchport trunk native vlan 999
+       switchport trunk allowed vlan 10,20,30,99
+       switchport mode dynamic auto
+       no shutdown
+      !
+      interface Ethernet0/1
+       shutdown
+      !
+      interface Ethernet0/2
+       shutdown
+      !
+      interface Ethernet0/3
+       shutdown
+      !
+      interface Ethernet1/0
+       description PC3
+       switchport mode access
+       switchport access vlan 30
+       spanning-tree portfast
+       no shutdown
+      !
+      interface Ethernet1/1
+       description PC4
+       switchport mode access
+       switchport access vlan 10
+       spanning-tree portfast
+       no shutdown
+      !
+      interface Ethernet1/2
+       shutdown
+      !
+      interface Ethernet1/3
+       shutdown
+      !
+      interface Vlan99
+       ip address 192.168.99.203 255.255.255.0
+       no shutdown
+      !
+      no ip routing
+      ip default-gateway 192.168.99.1
+      !
+      line con 0
+       exec-timeout 0 0
+       logging synchronous
+       privilege level 15
+      line vty 0 4
+       login local
+       transport input ssh telnet
+      !
+      end
+- id: n4
+  label: PC1
+  x: -400
+  y: 300
+  node_definition: alpine
+  image_definition: alpine-base-3-23-3
+  interfaces:
+  - id: i0
+    label: eth0
+    slot: 0
+    type: physical
+  configuration:
+  - name: node.cfg
+    content: |
+      # this is a shell script which will be sourced at boot
+      hostname PC1
+      USERNAME=cisco
+      PASSWORD=cisco
+      ip address add 192.168.10.10/24 dev eth0
+      ip link set dev eth0 up
+      ip route add default via 192.168.10.1
+- id: n5
+  label: PC2
+  x: -160
+  y: 300
+  node_definition: alpine
+  image_definition: alpine-base-3-23-3
+  interfaces:
+  - id: i0
+    label: eth0
+    slot: 0
+    type: physical
+  configuration:
+  - name: node.cfg
+    content: |
+      # this is a shell script which will be sourced at boot
+      hostname PC2
+      USERNAME=cisco
+      PASSWORD=cisco
+      ip address add 192.168.20.10/24 dev eth0
+      ip link set dev eth0 up
+      ip route add default via 192.168.20.1
+- id: n6
+  label: PC3
+  x: 160
+  y: 300
+  node_definition: alpine
+  image_definition: alpine-base-3-23-3
+  interfaces:
+  - id: i0
+    label: eth0
+    slot: 0
+    type: physical
+  configuration:
+  - name: node.cfg
+    content: |
+      # this is a shell script which will be sourced at boot
+      hostname PC3
+      USERNAME=cisco
+      PASSWORD=cisco
+      ip address add 192.168.30.10/24 dev eth0
+      ip link set dev eth0 up
+      ip route add default via 192.168.30.1
+- id: n7
+  label: PC4
+  x: 400
+  y: 300
+  node_definition: alpine
+  image_definition: alpine-base-3-23-3
+  interfaces:
+  - id: i0
+    label: eth0
+    slot: 0
+    type: physical
+  configuration:
+  - name: node.cfg
+    content: |
+      # this is a shell script which will be sourced at boot
+      hostname PC4
+      USERNAME=cisco
+      PASSWORD=cisco
+      ip address add 192.168.10.11/24 dev eth0
+      ip link set dev eth0 up
+      ip route add default via 192.168.10.1
+links:
+- id: l0
+  n1: n0
+  i1: i1
+  n2: n1
+  i2: i1
+- id: l1
+  n1: n1
+  i1: i2
+  n2: n2
+  i2: i1
+- id: l2
+  n1: n1
+  i1: i3
+  n2: n3
+  i2: i1
+- id: l3
+  n1: n2
+  i1: i5
+  n2: n4
+  i2: i0
+- id: l4
+  n1: n2
+  i1: i6
+  n2: n5
+  i2: i0
+- id: l5
+  n1: n3
+  i1: i5
+  n2: n6
+  i2: i0
+- id: l6
+  n1: n3
+  i1: i6
+  n2: n7
+  i2: i0
+annotations:
+- type: text
+  text_content: |-
+    R1  router-on-a-stick  cisco/cisco
+    Lo0     10.255.255.1/32
+    e0/0.10 192.168.10.1/24
+    e0/0.20 192.168.20.1/24
+    e0/0.30 192.168.30.1/24
+    e0/0.99 192.168.99.1/24
+    e0/0.999 native (no IP)
+  x1: 60
+  y1: -380
+  rotation: 0
+  text_bold: false
+  text_italic: false
+  text_size: 10
+  text_unit: pt
+  text_font: monospace
+  color: '#5A5A5AFF'
+  border_color: '#00000000'
+  border_style: ''
+  thickness: 1
+  z_index: 1
+- type: text
+  text_content: |-
+    SW1  distribution  cisco/cisco
+    Vlan99 192.168.99.201/24
+    e0/0 -> R1   e0/1 -> SW2   e0/2 -> SW3
+  x1: 60
+  y1: -180
+  rotation: 0
+  text_bold: false
+  text_italic: false
+  text_size: 10
+  text_unit: pt
+  text_font: monospace
+  color: '#5A5A5AFF'
+  border_color: '#00000000'
+  border_style: ''
+  thickness: 1
+  z_index: 1
+- type: text
+  text_content: |-
+    SW2  access  cisco/cisco
+    Vlan99 192.168.99.202/24
+    e0/0 -> SW1 e0/1
+    e1/0 PC1 (vlan 10)  e1/1 PC2 (vlan 20)
+  x1: -580
+  y1: 60
+  rotation: 0
+  text_bold: false
+  text_italic: false
+  text_size: 10
+  text_unit: pt
+  text_font: monospace
+  color: '#5A5A5AFF'
+  border_color: '#00000000'
+  border_style: ''
+  thickness: 1
+  z_index: 1
+- type: text
+  text_content: |-
+    SW3  access  cisco/cisco
+    Vlan99 192.168.99.203/24
+    e0/0 -> SW1 e0/2
+    e1/0 PC3 (vlan 30)  e1/1 PC4 (vlan 10)
+  x1: 340
+  y1: 60
+  rotation: 0
+  text_bold: false
+  text_italic: false
+  text_size: 10
+  text_unit: pt
+  text_font: monospace
+  color: '#5A5A5AFF'
+  border_color: '#00000000'
+  border_style: ''
+  thickness: 1
+  z_index: 1
+- type: text
+  text_content: |-
+    PC1  cisco/cisco
+    eth0 192.168.10.10/24
+    gw   192.168.10.1
+  x1: -470
+  y1: 340
+  rotation: 0
+  text_bold: false
+  text_italic: false
+  text_size: 10
+  text_unit: pt
+  text_font: monospace
+  color: '#5A5A5AFF'
+  border_color: '#00000000'
+  border_style: ''
+  thickness: 1
+  z_index: 1
+- type: text
+  text_content: |-
+    PC2  cisco/cisco
+    eth0 192.168.20.10/24
+    gw   192.168.20.1
+  x1: -230
+  y1: 340
+  rotation: 0
+  text_bold: false
+  text_italic: false
+  text_size: 10
+  text_unit: pt
+  text_font: monospace
+  color: '#5A5A5AFF'
+  border_color: '#00000000'
+  border_style: ''
+  thickness: 1
+  z_index: 1
+- type: text
+  text_content: |-
+    PC3  cisco/cisco
+    eth0 192.168.30.10/24
+    gw   192.168.30.1
+  x1: 90
+  y1: 340
+  rotation: 0
+  text_bold: false
+  text_italic: false
+  text_size: 10
+  text_unit: pt
+  text_font: monospace
+  color: '#5A5A5AFF'
+  border_color: '#00000000'
+  border_style: ''
+  thickness: 1
+  z_index: 1
+- type: text
+  text_content: |-
+    PC4  cisco/cisco
+    eth0 192.168.10.11/24
+    gw   192.168.10.1
+  x1: 330
+  y1: 340
+  rotation: 0
+  text_bold: false
+  text_italic: false
+  text_size: 10
+  text_unit: pt
+  text_font: monospace
+  color: '#5A5A5AFF'
+  border_color: '#00000000'
+  border_style: ''
+  thickness: 1
+  z_index: 1

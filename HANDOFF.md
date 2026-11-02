@@ -23,6 +23,8 @@ The user understands CCNP concepts but has seen little of it running, so labs te
   | ENCOR 3.1.b | `[TSHOOT] ENCOR 3.1.b EtherChannel (LACP, PAgP, L3)` (5 faults) | `…/switching/ts-etherchannel` |
   | ENCOR 3.1.c | `[LEARN] ENCOR 3.1.c Spanning Tree (RSTP, MST, Guards)` | `…/switching/learn-stp` |
   | ENCOR 3.1.c | `[TSHOOT] ENCOR 3.1.c MST and STP Guards` (4 faults) | `…/switching/ts-mst-guards` |
+  | ENCOR 3.2.c | `[LEARN] ENCOR 3.2.c eBGP Dual-Homed Edge` | `…/bgp/learn-ebgp` |
+  | ENCOR 3.2.c | `[TSHOOT] ENCOR 3.2.c eBGP Peering and Best Path` (5 faults, all on R1) | `…/bgp/ts-ebgp` |
 
   Each solution lists the few end-to-end checks that couldn't run under the 5-node limit, marked **Expected**.
 - **Backlog:** `blueprint/encor-v1.2.md` and `blueprint/enarsi-v1.1.md` list every exam topic with plan and status.
@@ -84,6 +86,6 @@ The user understands CCNP concepts but has seen little of it running, so labs te
 - Unverified: whether `external_connector` counts against the license. Recheck now and then whether an ENARSI v1.2 blueprint exists.
 
 ## Very next step
-Build **ENCOR 3.2.c eBGP** (learn + tshoot): eBGP between directly connected neighbors, best-path selection and
-neighbor states. Show the user the plan first (topology, Guide steps, fault list), then follow the workflow above.
-Also ask whether they've run any lab on the 20-node server yet and fold in feedback.
+3.2.c eBGP is built (learn + ts, dev-tested 2026-11-02; YAML import check via the VM still to do). Ask the user
+which topic is next (the backlog suggests 3.2.a EIGRP vs OSPF or ENARSI BGP topics), and whether they've run any
+lab on the 20-node server yet, so their feedback can be folded in.

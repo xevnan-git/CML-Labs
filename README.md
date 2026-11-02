@@ -24,6 +24,7 @@ Every lab fits within a **20-node** CML license and uses only IOL-XE, IOL-L2-XE,
 | ENCOR | 3.1.b | EtherChannel: LACP, PAgP, `mode on`, member consistency, L3 port-channel | — | [ts-etherchannel](labs/encor/3-infrastructure/switching/ts-etherchannel/) |
 | ENCOR | 3.1.c | Spanning tree: Rapid PVST+, MST regions, PortFast, BPDU guard, root guard | [learn-stp](labs/encor/3-infrastructure/switching/learn-stp/) | [ts-mst-guards](labs/encor/3-infrastructure/switching/ts-mst-guards/) |
 | ENCOR | 3.2.b | OSPFv2 multi-area (DR/BDR, p2p, passive, summarization, filtering, ASBR) | [learn-multiarea](labs/encor/3-infrastructure/ospf/learn-multiarea/) | [ts-multiarea-adjacency](labs/encor/3-infrastructure/ospf/ts-multiarea-adjacency/) |
+| ENCOR | 3.2.c | eBGP dual-homed edge: neighbor states, MD5, `network`, best path (weight, local-pref, prepend), no-transit | [learn-ebgp](labs/encor/3-infrastructure/bgp/learn-ebgp/) | [ts-ebgp](labs/encor/3-infrastructure/bgp/ts-ebgp/) |
 
 Labs marked *dev-tested* in the backlog were tested in 5-node chunks; they still need a full run on a 20-node server.
 

@@ -94,7 +94,8 @@ dnsmasq, chrome, firefox, splunk, thousandeyes). Topics that need these are mark
   `time-range` state. Alpine has `ssh`, `telnet`, `nc`, `wget` (no curl/nmap/snmpget) and runs `sshd`; for a web
   server use `/usr/sbin/httpd -p 80 -h <dir>` (busybox-extras; the `busybox httpd` applet is missing). An
   **outbound** interface ACL whose lines never match hits the implicit deny for the router's own packets too, ARP
-  replies included (`0 packets output`), unlike most hardware platforms.
+  replies included (`0 packets output`), unlike most hardware platforms. IOL-XE has `ip http server` and
+  `ip http secure-server` on by default, but port 80 answers with a TCP reset, so don't use HTTP to R* as a test.
 - **pyATS turns off console logging:** on connect, Unicon runs `no logging console` (plus `exec-timeout 0`) on IOL
   devices, logged as `%SYS-4-LOG_CONFIG_CHANGE` and `PnP Discovery stopped (Config Wizard)`. A node that pyATS never
   touched keeps console logging on (verified 2026-11-02), so labs need no fix. While testing, read `show logging`
@@ -168,6 +169,8 @@ topology files; the `PYATS_*` values on the VM must match. Alpine hosts: cisco /
       config-mode `send_cli_command` both verified on IOL-XE. (WSL2/Docker are out: Hyper-V must stay off for VMware.)
       The first command to a freshly booted node can time out while pyATS connects; retry once.
       The MCP tool prefix is now `mcp__Cisco_Modeling_Labs_CML__*`.
+      **Config changes (2026-11-04):** use `send_cli_config_command`. `send_cli_command` with `config_command=true`
+      now runs the lines in exec mode (`% Invalid input` on the first line); use `send_cli_command` for exec only.
 - [ ] **5-node enforcement** on the dev server blocks building labs > 5 licensed nodes here.
 - [x] Device credentials confirmed: cisco / cisco, enable cisco.
 - [x] GitHub remote: `https://github.com/xevnan-git/CML-Labs`, pushed over HTTPS with Git Credential Manager.

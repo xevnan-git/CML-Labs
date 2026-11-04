@@ -26,6 +26,7 @@ Every lab fits within a **20-node** CML license and uses only IOL-XE, IOL-L2-XE,
 | ENCOR | 3.2.b | OSPFv2 multi-area (DR/BDR, p2p, passive, summarization, filtering, ASBR) | [learn-multiarea](labs/encor/3-infrastructure/ospf/learn-multiarea/) | [ts-multiarea-adjacency](labs/encor/3-infrastructure/ospf/ts-multiarea-adjacency/) |
 | ENCOR | 3.2.c | eBGP dual-homed edge: neighbor states, MD5, `network`, best path (weight, local-pref, prepend), no-transit | [learn-ebgp](labs/encor/3-infrastructure/bgp/learn-ebgp/) | [ts-ebgp](labs/encor/3-infrastructure/bgp/ts-ebgp/) |
 | ENCOR | 5.2.a | ACLs (also ENARSI 3.2.a): standard vs extended placement, wildcards, named ACL sequence numbers, implicit deny vs OSPF, `established`, vty `access-class`, time-range | [learn-acl](labs/encor/5-security/infra-security/learn-acl/) | [ts-acl](labs/encor/5-security/infra-security/ts-acl/) |
+| ENCOR | 5.2.b | CoPP (also ENARSI 3.3): classify routing/management/monitoring, police per class, BGP source vs destination port, OSPF EXSTART, SSH vs policer burst, class-default and ARP | [learn-copp](labs/encor/5-security/infra-security/learn-copp/) | [ts-copp](labs/encor/5-security/infra-security/ts-copp/) |
 
 Labs marked *dev-tested* in the backlog were tested in 5-node chunks; they still need a full run on a 20-node server.
 

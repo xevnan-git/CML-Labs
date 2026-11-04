@@ -11,13 +11,14 @@ Every exam topic gets two labs:
 
 The user understands CCNP concepts but has seen little of it running, so labs teach by doing. Labs are built **on demand**: the user names the next topic.
 
-## Current status (2026-11-04, after the 5.2.a-b combined pair)
+## Current status (2026-11-04, ENCOR 3.0 run in progress: 3.2.a done)
 - **Repo:** https://github.com/xevnan-git/CML-Labs, branch `main`, everything committed and pushed. Local checkout:
-  `C:\Claude\CML-Labs`. `validate.py`: 15/15 labs pass.
+  `C:\Claude\CML-Labs`. `validate.py`: 16/16 labs pass.
 - **Built (all dev-tested on the 5-node server; none yet run on the 20-node server):**
 
   | Blueprint | Lab | Folder |
   |---|---|---|
+  | ENCOR 3.2.a | `[LEARN] ENCOR 3.2.a EIGRP vs OSPF` (no TS lab) | `labs/encor/3-infrastructure/eigrp-ospf/learn-eigrp-vs-ospf` |
   | ENCOR 3.2.b | `[LEARN] ENCOR 3.2.b OSPF Multi-Area` | `labs/encor/3-infrastructure/ospf/learn-multiarea` |
   | ENCOR 3.2.b | `[TSHOOT] ENCOR 3.2.b OSPF Multi-Area Adjacency` | `…/ospf/ts-multiarea-adjacency` |
   | ENCOR 3.1.a+b | `[TSHOOT] ENCOR 3.1.a-b Trunking and EtherChannel` (4 faults) | `…/switching/ts-trunk-etherchannel` |
@@ -35,7 +36,7 @@ The user understands CCNP concepts but has seen little of it running, so labs te
   | ENCOR 5.2.a-b | `[TSHOOT] ENCOR 5.2.a-b ACLs and CoPP` (4 faults, all on R1) | `…/infra-security/ts-acl-copp` |
 
   Older labs needed > 5 nodes and were tested in chunks; their solutions mark the few untestable end-to-end checks
-  **Expected**. The 5.2.a, 5.2.b and 5.2.a-b labs are 5 nodes each, so they ran whole and every output is **Captured**.
+  **Expected**. The 3.2.a, 5.2.a, 5.2.b and 5.2.a-b labs are 5 nodes each, so they ran whole and every output is **Captured**.
 - **Backlog:** `blueprint/encor-v1.2.md` and `blueprint/enarsi-v1.1.md` list every exam topic with plan and status.
 - **Tooling:**
   - CML MCP (cml-mcp with pyATS) runs on an Ubuntu VM over SSH, from the Claude desktop app.
@@ -136,7 +137,39 @@ The user understands CCNP concepts but has seen little of it running, so labs te
 - Unverified: whether `external_connector` counts against the license. Recheck now and then whether an ENARSI v1.2 blueprint exists.
 
 ## Very next step
-The 2026-11-02 plan for ENCOR 5.2 (six labs: ACLs, CoPP, and the combined pair) is complete. The combined TS lab's
-Fault 4 was changed from the planned `match-all` repeat to a fresh fault (iACL permits only `echo` to R1, so R1's
-own ping and traceroute fail) at the user's choice.
-**Ask the user which topic to build next** (`blueprint/*.md` lists the backlog), then follow the workflow above.
+**Approved plan (2026-11-04): finish ENCOR 3.0, topics in blueprint order.** The user approved it as written; build
+each pair without re-asking and just confirm "next pair?" between them. Every topology is ≤ 5 licensed nodes.
+
+| # | Topic | Labs | Status |
+|---|---|---|---|
+| 1 | 3.2.a EIGRP vs OSPF | learn only | **done** |
+| 2 | 3.2.d PBR (shared with ENARSI 1.6) | learn + ts (5 faults) | **next** |
+| 3 | 3.3.a NTP (PTP concept-only) | learn + ts (5) | |
+| 4 | 3.3.b NAT/PAT | learn + ts (5) | |
+| 5 | 3.3.c HSRP + VRRP (also 1.1.b) | learn + ts (5) | |
+| 6 | 3.3.d Multicast | learn + ts (5) | |
+
+Details as approved:
+- **3.2.d PBR:** PC1 (staff LAN) and PC2 (guest LAN) on R1, dual-homed to ISP1 and ISP2; both ISPs carry the same
+  "internet server" loopback so traceroute shows the ISP used. Guide: default via ISP1, guests via ISP2 by
+  route-map; `set ip next-hop` vs `set ip default next-hop`; `verify-availability` + IP SLA track; `ip local
+  policy`; `show route-map` and `debug ip policy`. TS: policy on the wrong interface (PBR is ingress only), ACL
+  matches the wrong source, `default next-hop` so the default route always wins, unreachable next hop (silent
+  fallback to the RIB), IP SLA probing the wrong target.
+- **3.3.a NTP:** NTP1 (`ntp master`) → R1 → R2 and R3 (R2–R3 peers). Guide: clock and time zone, hierarchy and
+  stratum, peers, MD5 auth and `trusted-key`, `ntp access-group`, `ntp source`, `show ntp associations/status`.
+  TS: key mismatch, missing `trusted-key`, access-group blocks, source interface the server can't reach,
+  self-reference or loop. NTP sync takes minutes: plan the test waits.
+- **3.3.b NAT/PAT:** PC1 and SRV1 (web) inside, R1 edge, ISP1, PC2 outside. Guide: inside/outside, static NAT +
+  port forwarding for SRV1, dynamic pool, PAT overload, translations/statistics, `debug ip nat`, NAT order vs an
+  outside ACL. TS: inside/outside swapped, wrong ACL wildcard, 1-address pool without overload, port forward to
+  the wrong port, ISP has no route to the pool.
+- **3.3.c FHRP:** R1 and R2 gateways for LAN10 (PC1, HSRPv2) and LAN20 (PC2, VRRPv3), R3 upstream as the target.
+  Guide: priority, preempt, object tracking, timers, auth, load sharing per LAN, failover/failback with
+  continuous pings. TS: group mismatch (two actives), VIP mismatch, missing preempt, track decrement too small,
+  auth or version mismatch.
+- **3.3.d Multicast:** five routers; `ping 239.x` as the source, `ip igmp join-group` receivers. Guide: IGMPv2 vs
+  v3, PIM-SM static RP, shared tree vs SPT, RPF and static mroute fix, SSM; bidir and MSDP/anycast RP only if IOL-XE
+  supports them (verify first, say so if not). TS: RPF failure, missing `ip pim`, RP mismatch, IGMPv2 for an SSM
+  group, TTL or ACL boundary. The user approved adding a TS lab here (the backlog originally said learn only).
+- Not in scope: OSPFv3 under ENCOR (the user didn't take the offer; it stays with ENARSI 1.10.a).

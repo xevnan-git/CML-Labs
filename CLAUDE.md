@@ -104,6 +104,10 @@ dnsmasq, chrome, firefox, splunk, thousandeyes). Topics that need these are mark
   devices, logged as `%SYS-4-LOG_CONFIG_CHANGE` and `PnP Discovery stopped (Config Wizard)`. A node that pyATS never
   touched keeps console logging on (verified 2026-11-02), so labs need no fix. While testing, read `show logging`
   and don't capture `no logging console` into solution configs.
+- **PBR on IOL-XE 17.18 (verified 2026-11-04):** `set ip default next-hop` ignores a default route (only an explicit
+  route beats it) and takes no `track`. A next hop not on a connected subnet is silently ignored. `ip sla` entries
+  can't be edited while running (`no ip sla N`, re-enter, re-schedule). Don't `telnet` from a router over pyATS: it
+  wedges the session.
 - **Annotation `border_style` differs by path:** CML's own file format (the import API and the Lab Repository indexer)
   only accepts `''` (solid), `'2,2'` (dotted) or `'4,2'` (dashed). The MCP `create_full_lab_topology` tool
   wants `solid`/`dotted`/`dashed` instead. Committed `.yaml` files must use CML's form, which `validate.py` checks. A

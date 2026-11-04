@@ -12,7 +12,7 @@ Legend: see [README](README.md).
 | 1.3 | Loop prevention (filtering, tagging, split horizon, route poisoning) | ts | backlog | | Pairs with 1.4 redistribution loops |
 | 1.4 | Redistribution between any protocols or sources | learn + ts | backlog | | Two-point mutual redistribution |
 | 1.5 | Manual and auto summarization (any protocol) | learn + ts | backlog | | |
-| 1.6 | Policy-based routing | learn + ts | backlog | | Also covers ENCOR 3.2.d |
+| 1.6 | Policy-based routing | learn + ts | done (dev-tested) | [learn-pbr](../labs/encor/3-infrastructure/pbr/learn-pbr/), [ts-pbr](../labs/encor/3-infrastructure/pbr/ts-pbr/) | Built as ENCOR 3.2.d; covers next-hop vs default next-hop, verify-availability/track, local policy, `debug ip policy` |
 | 1.7 | VRF-Lite | learn + ts | backlog | | Builds on ENCOR 2.2.a |
 | 1.8 | Bidirectional Forwarding Detection | learn | backlog | | With OSPF/BGP failover timing |
 | 1.9.a | EIGRP address families (IPv4/IPv6), classic and named mode, VRF and global | learn | backlog | | |

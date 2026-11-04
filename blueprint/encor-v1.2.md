@@ -35,7 +35,7 @@ Legend: see [README](README.md).
 | 3.2.a | EIGRP vs OSPF concepts (DV vs LS, LB, path selection, metrics, areas) | learn | done (dev-tested) | [learn-eigrp-vs-ospf](../labs/encor/3-infrastructure/eigrp-ospf/learn-eigrp-vs-ospf/) | 5 nodes, tested whole; both protocols on one square topology. No TS lab (describe-level topic) |
 | 3.2.b | OSPFv2/v3 multi-area, summarization, filtering, network types, passive | learn + ts | done (dev-tested) | [learn-multiarea](../labs/encor/3-infrastructure/ospf/learn-multiarea/), [ts-multiarea-adjacency](../labs/encor/3-infrastructure/ospf/ts-multiarea-adjacency/) | OSPFv2 only; OSPFv3 → ENARSI 1.10.a. Needs full 8-node run on 20-node server |
 | 3.2.c | eBGP between directly connected neighbors, best path, neighbor states | learn + ts | done (dev-tested) | [learn-ebgp](../labs/encor/3-infrastructure/bgp/learn-ebgp/), [ts-ebgp](../labs/encor/3-infrastructure/bgp/ts-ebgp/) | 6 nodes; PC1↔PC2 end-to-end needs the 20-node server |
-| 3.2.d | Policy-based routing | → ENARSI 1.6 | backlog | | |
+| 3.2.d | Policy-based routing | learn + ts (shared with ENARSI 1.6) | done (dev-tested) | [learn-pbr](../labs/encor/3-infrastructure/pbr/learn-pbr/), [ts-pbr](../labs/encor/3-infrastructure/pbr/ts-pbr/) | 5 nodes, tested whole; dual ISP, guests via ISP2 with IP SLA tracking, `ip local policy` |
 | 3.3.a | NTP and PTP configurations | learn + ts | backlog | | PTP concept-only |
 | 3.3.b | NAT/PAT | learn + ts | backlog | | |
 | 3.3.c | FHRP: HSRP, VRRP | learn + ts | backlog | | Also covers 1.1.b |

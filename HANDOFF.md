@@ -1,18 +1,20 @@
 # Handoff — CML CCNP Lab Library
 
 Paste this into a new chat to continue the project. (It supersedes `claude-code-handoff-prompt.md`, the original setup brief.)
+Read `CLAUDE.md` too: it holds the full conventions, safety rules and verified platform facts.
 
 ## Goal
 Build a GitHub repo of Cisco Modeling Labs (CML) labs for **CCNP Enterprise: ENCOR 350-401 v1.2 + ENARSI 300-410 v1.1**.
 Every exam topic gets two labs:
-- **Learning lab**: routers boot clean, and a step-by-step Guide builds the topic, showing the exact commands, what to look for in the output, and *why*.
+- **Learning lab**: a step-by-step Guide builds the topic, showing the exact commands, what to look for in the output, and *why*.
 - **Troubleshooting lab**: the network boots with injected faults. The Guide has a ticket, logins, addressing, intended design and expected behavior, with **no hints**. Hints and the solution live only in the repo's `solution/README.md`.
 
 The user understands CCNP concepts but has seen little of it running, so labs teach by doing. Labs are built **on demand**: the user names the next topic.
 
-## Current status (2026-11-04, updated after 5.2.b)
-- **Repo:** https://github.com/xevnan-git/CML-Labs, branch `main`, everything pushed. Local checkout: `C:\Claude\CML-Labs`.
-- **Built (all dev-tested in 5-node chunks; none yet run in full on the 20-node server):**
+## Current status (2026-11-04, after 5.2.b)
+- **Repo:** https://github.com/xevnan-git/CML-Labs, branch `main`, everything committed and pushed (last lab commit
+  `e55bde9`). Local checkout: `C:\Claude\CML-Labs`. `validate.py`: 13/13 labs pass.
+- **Built (all dev-tested on the 5-node server; none yet run on the 20-node server):**
 
   | Blueprint | Lab | Folder |
   |---|---|---|
@@ -30,11 +32,16 @@ The user understands CCNP concepts but has seen little of it running, so labs te
   | ENCOR 5.2.b | `[LEARN] ENCOR 5.2.b CoPP` (also ENARSI 3.3) | `…/infra-security/learn-copp` |
   | ENCOR 5.2.b | `[TSHOOT] ENCOR 5.2.b CoPP` (5 faults, all on R1) | `…/infra-security/ts-copp` |
 
-  Each solution lists the few end-to-end checks that couldn't run under the 5-node limit, marked **Expected**.
+  Older labs needed > 5 nodes and were tested in chunks; their solutions mark the few untestable end-to-end checks
+  **Expected**. The 5.2.a and 5.2.b labs are 5 nodes each, so they ran whole and every output is **Captured**.
 - **Backlog:** `blueprint/encor-v1.2.md` and `blueprint/enarsi-v1.1.md` list every exam topic with plan and status.
-- **Tooling works:**
-  - CML MCP (cml-mcp with pyATS) runs on an Ubuntu VM over SSH, so `send_cli_command` works on IOL-XE, IOL-L2-XE and Alpine nodes.
-  - Scripts: `tools/validate.py`, `tools/sync_notes.py`, `tools/import_lab.py`, and one builder per lab (pair) in `tools/builders/`.
+- **Tooling:**
+  - CML MCP (cml-mcp with pyATS) runs on an Ubuntu VM over SSH, from the Claude desktop app.
+  - **Exec commands:** `send_cli_command`. **Config commands:** `send_cli_config_command` (load it with ToolSearch).
+    Since 2026-11-04, `send_cli_command` with `config_command=true` runs the lines in exec mode and fails with
+    `% Invalid input` on the first line.
+  - Scripts: `tools/validate.py`, `tools/sync_notes.py`, `tools/import_lab.py`, and one builder per lab pair in
+    `tools/builders/`. The newest, `encor_5_2_a_acl.py` and `encor_5_2_b_copp.py`, are the cleanest pattern.
 
 ## User preferences (from feedback)
 - **Guide layout, scenario first:** Ticket / objectives → Done when → Rules → Intended design → Expected behavior,
@@ -44,6 +51,15 @@ The user understands CCNP concepts but has seen little of it running, so labs te
   layered so that fixing one reveals the next. Larger topologies (6–8 nodes) are fine.
 - A TS Guide's Rules must not hint (e.g. no "re-check PC1 after every change").
 - Learn labs can be skipped when the user says so (3.1.a/b were TS-only by request).
+- Show the plan (topologies, Guide steps, fault lists) before building a new topic. Once the user approves a
+  multi-lab plan, build its labs without re-asking; just confirm "next pair?" between them.
+
+## Decisions awaiting the user's feedback
+- **Learn labs with preconfigured routing:** the 5.2.a and 5.2.b learn labs boot with addressing, OSPF and BGP
+  already working (no ACLs / no CoPP), because the topic isn't routing. That bends CLAUDE.md's "learn labs boot
+  clean" rule. The user was told and hasn't objected. Keep doing it for 5.2.a-b unless they say otherwise.
+- **Topology changes vs the original plan:** the ACL labs use R1, R2, PC1, PC2 and SRV1 (an Alpine web/SSH server)
+  instead of three routers, so there's a real host to protect. The user was told.
 
 ## Environment
 - **Dev CML server:** CML 2.10.1 on VMware, unregistered eval license (expires 2027-01-27). It **enforces 5 running licensed nodes** (unmanaged switches don't count).
@@ -51,22 +67,27 @@ The user understands CCNP concepts but has seen little of it running, so labs te
 - **Images:** IOL-XE 17.18.2 routers, IOL-L2-XE switches, IOSv, IOSv-L2, ASAv, Alpine, TinyCore, Ubuntu 24.04. No Cat8000v/CSR/XR/Nexus/Cat9kv/WLC/SD-WAN/ISE/Docker nodes, so those topics are marked "N/A here" in the backlog.
 - **MCP:** runs from the Claude desktop app via SSH to the Ubuntu VM (user `justin`, lowercase). Credentials live only in a 600-mode env file on the VM. Hyper-V must stay **off** (it breaks VMware), so there's no WSL or Docker.
 - **CML pulls the repo** as a Lab Repository (Folder = `labs`). CML can't authenticate, so the user makes the repo **public while working, private otherwise**. A refresh error `could not read Username for 'https://github.com'` just means it's private: ask the user to switch it.
+- The local Windows checkout has **no `.env`**, so the import check and repo refresh can't run from here.
 
 ## Key decisions (all detailed in `CLAUDE.md`)
 - **Titles:** `[LEARN] <EXAM> <id> <Topic>` / `[TSHOOT] <EXAM> <id> <Topic>`. Temporary test chunks use `[TEST] …`.
 - **Paths:** `labs/<exam>/<n>-<domain>/<topic>/<learn|ts>-<name>/` containing `<exam>-<id>-<topic>-<learn|ts>-<name>.yaml` (unique name, never `topology.yaml`), `README.md` (the Guide, also copied into the lab's CML notes), `solution/README.md` and `solution/configs/*.cfg`.
 - **Every licensed node has a canvas label** with its login and addresses.
 - **Logins:** routers `cisco` / `cisco`, enable `cisco`; Alpine hosts `cisco` / `cisco`.
-- **Addressing:** Lo0 `10.255.255.N/32`; link Ra–Rb `10.a.b.0/24` with host = router number; LANs `192.168.<vlan>.0/24` (gateway .1); summarizable blocks `172.(16+N).x.0/24`. Full plan in `templates/addressing.md`.
+- **Addressing:** Lo0 `10.255.255.N/32`; link Ra–Rb `10.a.b.0/24` with host = router number; LANs `192.168.<vlan>.0/24` (gateway .1); summarizable blocks `172.(16+N).x.0/24`; ISP routers number from 101. Full plan in `templates/addressing.md`.
 - **Solution output** is labelled **Captured** (real pyATS output) or **Expected** (not yet run).
 - **Git identity:** `xevnan-git <348862922+xevnan-git@users.noreply.github.com>`. GitHub rejects the Gmail address.
 
 ## Workflow per lab
 1. The user names a topic. Design the topology and Guide; show a brief plan.
-2. Write a builder in `tools/builders/` that generates the clean, final and faulted configs plus both YAMLs.
-3. Test in ≤ 5-node `[TEST]` chunks with pyATS: build working → verify → inject faults → confirm the symptoms → apply the fixes → re-verify.
-4. Run `uv run tools/sync_notes.py` and `uv run tools/validate.py`. Import-check each YAML via CML `POST /api/v0/import` from the VM.
-5. Update the backlog and README index, commit, push, and refresh the CML repo (`PUT /api/v0/lab_repos/refresh`).
+2. Write a builder in `tools/builders/` that generates the clean, final and faulted configs plus both YAMLs
+   (`--chunks DIR` writes test topologies as JSON for `create_full_lab_topology`).
+3. Test in ≤ 5-node `[TEST]` labs with pyATS. Learn lab: boot the clean variant and run every Guide step as
+   written, capturing output for the Guide. TS lab: boot the faulted variant, confirm each symptom, fix in order,
+   re-verify the "Done when" list. Delete the `[TEST]` lab afterwards (standing OK).
+4. Write the Guides and solutions, then run the builder, `uv run tools/sync_notes.py` and `uv run tools/validate.py`.
+5. Update the backlog rows (both exams where a topic is shared), the README index and this file; commit
+   (`<exam> <id>: add learn-/ts-<name>`) and push. Import check and repo refresh happen from the VM.
 
 ## Avoid
 - **Shared-server safety:**
@@ -77,55 +98,62 @@ The user understands CCNP concepts but has seen little of it running, so labs te
 - **Annotation format:** in committed YAML, annotation `border_style` must be `''`, `'2,2'` or `'4,2'`. The MCP tool wants `solid`/`dotted`/`dashed` instead, and the wrong form makes CML silently drop the lab ("Invalid topology file").
 - **IOL config order:** in IOL startup configs, anything that references an interface (e.g. `route-map … match interface`) must come *after* that interface.
 - **Hints in CML:** don't put hints or solutions in a troubleshooting Guide or the CML notes.
-- **Timeouts:** the first pyATS command to a freshly booted node can time out. Retry once.
+- **Timeouts:** the first pyATS command to a freshly booted node can time out; retry once. A single tool call
+  that runs longer than about 45 s (e.g. `sleep 50` on a PC) times out, so wait in ≤ 45 s steps.
 - **Platform traps (detail in `CLAUDE.md`):** IOL-L2 has `ip routing` on by default (L2-only switches need
   `no ip routing` or `ip default-gateway` is ignored); IOL-XE routers can't do EtherChannel; IOL-L2 has no
   `min-links` and drops `lacp max-bundle`; pyATS turns off console logging when it connects (labs are fine).
+- **Security traps (found building 5.2.a/b, detail in `CLAUDE.md`):**
+  - An outbound ACL whose lines never match drops the router's own ARP replies on IOL-XE (`0 packets output`).
+  - CoPP: `drop` is rejected under a control-plane class (use `police … conform-action drop exceed-action drop`);
+    ARP lands in class-default, so a dropping class-default kills ARP; a class policed at 32 kbps (bc 1500)
+    hangs SSH but not Telnet.
+  - IOL-XE's HTTP server is on by default but answers port 80 with a reset; don't use HTTP to a router as a test.
+  - Alpine: `ssh`, `telnet`, `nc`, `wget`, and `sshd` running; web server is `/usr/sbin/httpd -p 80 -h <dir>`.
+    No curl, nmap or SNMP client.
 - **BGP traps (found building 3.2.c):** `network 192.168.10.0 mask 255.255.0.0` is *rejected* (host bits set);
   use a valid-but-unmatched prefix for a "not advertised" fault. After boot, BGP holds paths without `>` for up to
   ~2 min while a neighbor never comes up (read-only mode). `show ip bgp <pfx> best-path-reason` works on IOL-XE
   17.18. Policy changes need `clear ip bgp … soft in|out`, and the result lags the command by a few seconds.
 - **pyATS on Alpine:** run `traceroute -n -q 1 -w 1` (and `ping -W 1`); default timeouts can exceed the tool call's.
 - **Unverified claims:** test every fault's symptom live before writing it up. If a fault behaves
-  non-deterministically (e.g. LACP picking a link by race), replace it.
+  non-deterministically (e.g. LACP picking a link by race), replace it. Don't state packet-level causes you
+  haven't observed; describe what the counters showed.
 
 ## Open items
-- Full runs of every lab on the 20-node server. As of 2026-11-01 the user hasn't run any yet ("the briefs look
-  good"); they'll give feedback on the Guide format once they do. No need to ask every session.
-- 3.2.c, 5.2.a and 5.2.b YAMLs: CML import check (`POST /api/v0/import` from the VM) and Lab Repository refresh not yet run. The
-  local Windows checkout has no `.env`, so do it from the VM or ask the user.
+- Full runs of every lab on the 20-node server. As of 2026-11-04 the user hasn't run any yet; they'll give feedback
+  on the Guide format once they do. No need to ask every session.
+- 3.2.c, 5.2.a and 5.2.b YAMLs: CML import check (`POST /api/v0/import` from the VM) and Lab Repository refresh
+  not yet run. Do it from the VM or ask the user.
 - `tools/cml_teardown_lab.py`: the user will add it. Restrict it to project-tagged labs and `.env`.
 - Unverified: whether `external_connector` counts against the license. Recheck now and then whether an ENARSI v1.2 blueprint exists.
 
 ## Very next step
-Continue **ENCOR 5.2 infrastructure security**, the user's pick (2026-11-01). The user approved this plan on
-2026-11-02 ("Yes, start with ACLs"). 5.2.a and 5.2.b are done (2026-11-04). Next: the **5.2.a-b combined** pair.
+The user asked for this handoff right after 5.2.b and hasn't yet answered "build the combined 5.2.a-b pair next?".
+**Ask that first.** If yes, build it; if they name another topic, follow the workflow for that instead.
 
-| Topic | Learn | TS (faults) | Folder |
-|---|---|---|---|
-| 5.2.a ACLs | done | done | `labs/encor/5-security/infra-security/learn-acl`, `ts-acl` |
-| 5.2.b CoPP | done | done | `…/infra-security/learn-copp`, `ts-copp` |
-| 5.2.a-b combined | `[LEARN] ENCOR 5.2.a-b ACLs and CoPP` | `[TSHOOT] ENCOR 5.2.a-b ACLs and CoPP` (4) | `…/infra-security/learn-acl-copp`, `ts-acl-copp` |
+**5.2.a-b combined pair** (part of the plan the user approved on 2026-11-02):
 
-File names: `encor-5.2.b-infra-security-learn-copp.yaml`, `encor-5.2.ab-infra-security-ts-acl-copp.yaml` etc.
-Builder pattern: `tools/builders/encor_5_2_b_copp.py` (same topology as the combined pair; modes clean / final / ts,
-whole-lab `--chunks`). Reuse its topology, routing (ISP1 passive, BGP timers 10/30) and COPP block.
-Platform facts are in CLAUDE.md (CoPP on IOL-XE, outbound-ACL ARP drop, HTTP refuses, the new
-`send_cli_config_command` tool).
+| Learn | TS (faults) | Folder |
+|---|---|---|
+| `[LEARN] ENCOR 5.2.a-b ACLs and CoPP` | `[TSHOOT] ENCOR 5.2.a-b ACLs and CoPP` (4) | `labs/encor/5-security/infra-security/learn-acl-copp`, `ts-acl-copp` |
 
-**Approved topology (CoPP and combined, 5 licensed nodes):**
-`PC1 (mgmt LAN 192.168.10.0/24) ── R2 ══OSPF══ R1 ══eBGP══ ISP1 ── PC2 (internet host)`. R1 is the protected edge.
-
-**5.2.a-b combined learn:** infrastructure ACL (iACL) inbound on R1's internet interface (anti-spoof, protect R1's
-own addresses, permit transit), CoPP behind it, vty `access-class` as the third layer; show processing order and
-"permitted by the iACL, dropped by CoPP".
-
-**5.2.a-b combined TS (4):** (1) anti-spoof `deny 10.0.0.0 0.255.255.255` also blocks the ISP's BGP peer
-address → BGP down; (2) no transit permit in the iACL → PC1 can't reach the internet; (3) iACL and access-class
-allow SSH but CoPP's management class only matches Telnet; (4) `match-all` trap on the ICMP class → pings to R1's
-loopback fail. Fault 4 repeats ts-copp's Fault 5, so swap it for a fresh interaction if one tests
-cleanly (e.g. the iACL permitting ICMP to R1 only as echo, so CoPP never sees the replies R1 needs).
-
-Combined TS fault 1 (anti-spoof line vs the 10.x BGP peer) hinges on exact behavior: verify live, and replace
-any fault that isn't deterministic. The CoPP class names, rates and ACLs from 5.2.b are the starting point; the
-combined learn lab should not re-teach CoPP from scratch (point back to the 5.2.a and 5.2.b labs).
+- File names: `encor-5.2.ab-infra-security-learn-acl-copp.yaml`, `encor-5.2.ab-infra-security-ts-acl-copp.yaml`
+  (matching `encor-3.1.ab-…`). Builder: `tools/builders/encor_5_2_ab_acl_copp.py`.
+- **Topology:** the same as 5.2.b, 5 licensed nodes:
+  `PC1 (mgmt LAN 192.168.10.0/24) ── R2 ══OSPF══ R1 ══eBGP══ ISP1 ── PC2 (internet host)`. R1 is the protected edge.
+  Start from `encor_5_2_b_copp.py`: same addressing, routing (ISP1 passive, BGP timers 10/30) and COPP block.
+- **Learn:** an infrastructure ACL (iACL) inbound on R1's internet interface e0/1 (anti-spoofing, protect R1's own
+  addresses except BGP from the ISP peer, permit transit), CoPP behind it, and vty `access-class` as the third
+  layer. Show the order (interface ACL first, then CoPP), compare `show access-lists` hits with
+  `show policy-map control-plane` counters, and show traffic the iACL permits but CoPP drops. Don't re-teach ACL
+  or CoPP basics; point back to the 5.2.a and 5.2.b labs.
+- **TS (4 faults), as planned:**
+  1. The anti-spoofing `deny 10.0.0.0 0.255.255.255` also matches the ISP's BGP peer 10.1.101.101, so BGP is down.
+     Verify live: it's the one fault whose behavior is still unconfirmed.
+  2. The iACL has no transit permit, so PC1 can't reach the internet.
+  3. The iACL and `access-class` allow SSH, but CoPP's management class matches only Telnet.
+  4. `match-all` on the ICMP class, so pings to R1's loopback fail. **This repeats ts-copp's Fault 5.** Propose a
+     fresh ACL-and-CoPP interaction to the user instead, and keep this one only if they prefer it.
+- Afterwards: update the 5.2.a and 5.2.b blueprint rows (status "combined pair next" → done), the README index and
+  this file.

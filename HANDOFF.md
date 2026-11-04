@@ -137,8 +137,8 @@ The user understands CCNP concepts but has seen little of it running, so labs te
 - Unverified: whether `external_connector` counts against the license. Recheck now and then whether an ENARSI v1.2 blueprint exists.
 
 ## Very next step
-**Resume here:** the user approved going ahead with 3.2.d (the last session ended on "next pair?" only because
-usage ran low). Start building the 3.2.d PBR pair straight away: no need to re-show the plan below.
+**Resume here:** 3.2.a is done; next is the 3.2.d PBR pair. The plan below is approved, so don't re-show it: just
+confirm "build 3.2.d next?" in one line (the last session asked but ended before an answer) and then build it.
 - Model builder for a learn+ts pair: `tools/builders/encor_5_2_b_copp.py` (self-contained); for a learn-only lab:
   `tools/builders/encor_3_2_a_eigrp_ospf.py`. Folder for PBR: `labs/encor/3-infrastructure/pbr/`, files
   `encor-3.2.d-pbr-learn-<name>.yaml` / `encor-3.2.d-pbr-ts-<name>.yaml`. Update the ENCOR 3.2.d row and the ENARSI

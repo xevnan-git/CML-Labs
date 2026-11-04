@@ -11,9 +11,9 @@ Every exam topic gets two labs:
 
 The user understands CCNP concepts but has seen little of it running, so labs teach by doing. Labs are built **on demand**: the user names the next topic.
 
-## Current status (2026-11-04, ENCOR 3.0 run in progress: 3.2.a and 3.2.d done)
+## Current status (2026-11-04, ENCOR 3.0 run in progress: 3.2.a, 3.2.d and 3.3.a done)
 - **Repo:** https://github.com/xevnan-git/CML-Labs, branch `main`, everything committed and pushed. Local checkout:
-  `C:\Claude\CML-Labs`. `validate.py`: 18/18 labs pass.
+  `C:\Claude\CML-Labs`. `validate.py`: 20/20 labs pass.
 - **Built (all dev-tested on the 5-node server; none yet run on the 20-node server):**
 
   | Blueprint | Lab | Folder |
@@ -36,9 +36,11 @@ The user understands CCNP concepts but has seen little of it running, so labs te
   | ENCOR 5.2.a-b | `[TSHOOT] ENCOR 5.2.a-b ACLs and CoPP` (4 faults, all on R1) | `…/infra-security/ts-acl-copp` |
   | ENCOR 3.2.d | `[LEARN] ENCOR 3.2.d Policy-Based Routing` (also ENARSI 1.6) | `labs/encor/3-infrastructure/pbr/learn-pbr` |
   | ENCOR 3.2.d | `[TSHOOT] ENCOR 3.2.d Policy-Based Routing` (5 faults, all on R1, 1–4 layered) | `…/pbr/ts-pbr` |
+  | ENCOR 3.3.a | `[LEARN] ENCOR 3.3.a NTP` (PTP concept-only) | `labs/encor/3-infrastructure/ntp/learn-ntp` |
+  | ENCOR 3.3.a | `[TSHOOT] ENCOR 3.3.a NTP` (5 faults: 2 on R1, 1 on R2, 2 on R3) | `…/ntp/ts-ntp` |
 
   Older labs needed > 5 nodes and were tested in chunks; their solutions mark the few untestable end-to-end checks
-  **Expected**. The 3.2.a, 3.2.d, 5.2.a, 5.2.b and 5.2.a-b labs are 5 nodes each, so they ran whole and every output is **Captured**.
+  **Expected**. The 3.2.a, 3.2.d, 3.3.a, 5.2.a, 5.2.b and 5.2.a-b labs are ≤ 5 nodes each, so they ran whole and every output is **Captured**.
 - **Backlog:** `blueprint/encor-v1.2.md` and `blueprint/enarsi-v1.1.md` list every exam topic with plan and status.
 - **Tooling:**
   - CML MCP (cml-mcp with pyATS) runs on an Ubuntu VM over SSH, from the Claude desktop app.
@@ -132,6 +134,15 @@ The user understands CCNP concepts but has seen little of it running, so labs te
   be edited: `no ip sla N` and re-enter. Busybox traceroute's last hop is the ISP's *interface* address, so two
   ISPs owning the same loopback are told apart by traceroute. **Never `telnet` from a router via pyATS**: it wedges
   the session (it typed into the remote login); recover with an `exit` command, then retry.
+- **NTP traps (found building 3.3.a):** an `ntp master` stays *unsynchronized* (`loopfilter 'FREQ'`) ~15 min after
+  it's configured and serves nobody meanwhile; each level below then needs its own ~15 min, so a 3-level
+  hierarchy takes ~45–50 min to show "synchronized". Test with `reach`, `*` and `assoc in/out/error packets`
+  (they move within a poll), and wait with `sleep N` in a background Bash call. 17.18 debug syntax is
+  `debug ntp packet|events|core` (not `packets`/`validity`); there's no `show ntp access-group` (use `show ip
+  access-lists`, which counts NTP matches). With only `ntp access-group serve-only`, the router drops its own
+  server's replies: it needs a `peer` group too. Untrusted key: IOS-XE sends no packets at all. Key mismatch:
+  `NTP Core (ERROR): Invalid-NAK error` in the log without debug. 17.18 logs `%SYS-4-INSECURE_CONFIG` for MD5
+  keys and untrusted keys ~2 min after boot (names the missing `ntp trusted-key`).
 - **pyATS on Alpine:** run `traceroute -n -q 1 -w 1` (and `ping -W 1`); default timeouts can exceed the tool call's.
 - **Unverified claims:** test every fault's symptom live before writing it up. If a fault behaves
   non-deterministically (e.g. LACP picking a link by race), replace it. Don't state packet-level causes you
@@ -140,17 +151,18 @@ The user understands CCNP concepts but has seen little of it running, so labs te
 ## Open items
 - Full runs of every lab on the 20-node server. As of 2026-11-04 the user hasn't run any yet; they'll give feedback
   on the Guide format once they do. No need to ask every session.
-- 3.2.a, 3.2.c, 3.2.d, 5.2.a, 5.2.b and 5.2.a-b YAMLs: CML import check (`POST /api/v0/import` from the VM) and Lab Repository refresh
+- 3.2.a, 3.2.c, 3.2.d, 3.3.a, 5.2.a, 5.2.b and 5.2.a-b YAMLs: CML import check (`POST /api/v0/import` from the VM) and Lab Repository refresh
   not yet run. Do it from the VM or ask the user.
 - `tools/cml_teardown_lab.py`: the user will add it. Restrict it to project-tagged labs and `.env`.
 - Unverified: whether `external_connector` counts against the license. Recheck now and then whether an ENARSI v1.2 blueprint exists.
 
 ## Very next step
-**Resume here:** 3.2.a and 3.2.d are done; next is the 3.3.a NTP pair. The plan below is approved, so don't
-re-show it: confirm "build 3.3.a next?" in one line and then build it.
-- Model builder for a learn+ts pair: `tools/builders/encor_3_2_d_pbr.py` (newest, self-contained) or
-  `encor_5_2_b_copp.py`; for a learn-only lab: `tools/builders/encor_3_2_a_eigrp_ospf.py`. Folder for NTP:
-  `labs/encor/3-infrastructure/ntp/`, files `encor-3.3.a-ntp-learn-<name>.yaml` / `encor-3.3.a-ntp-ts-<name>.yaml`.
+**Resume here:** 3.2.a, 3.2.d and 3.3.a are done; next is the 3.3.b NAT/PAT pair. The plan below is approved,
+so don't re-show it: confirm "build 3.3.b next?" in one line and then build it.
+- Model builder for a learn+ts pair: `tools/builders/encor_3_2_d_pbr.py` (hosts + routers) or
+  `encor_3_3_a_ntp.py` (routers only, faults on several routers); for a learn-only lab:
+  `tools/builders/encor_3_2_a_eigrp_ospf.py`. Folder for NAT: `labs/encor/3-infrastructure/nat/`, files
+  `encor-3.3.b-nat-learn-<name>.yaml` / `encor-3.3.b-nat-ts-<name>.yaml`.
 - Learn labs in this run boot with addresses (and any non-topic routing) preconfigured, like 3.2.a and 5.2.
 - Test hint: `wait_for_convergence=true` on start, then expect the first pyATS command to time out once.
 
@@ -161,8 +173,8 @@ each pair without re-asking and just confirm "next pair?" between them. Every to
 |---|---|---|---|
 | 1 | 3.2.a EIGRP vs OSPF | learn only | **done** |
 | 2 | 3.2.d PBR (shared with ENARSI 1.6) | learn + ts (5 faults) | **done** |
-| 3 | 3.3.a NTP (PTP concept-only) | learn + ts (5) | **next** |
-| 4 | 3.3.b NAT/PAT | learn + ts (5) | |
+| 3 | 3.3.a NTP (PTP concept-only) | learn + ts (5) | **done** |
+| 4 | 3.3.b NAT/PAT | learn + ts (5) | **next** |
 | 5 | 3.3.c HSRP + VRRP (also 1.1.b) | learn + ts (5) | |
 | 6 | 3.3.d Multicast | learn + ts (5) | |
 

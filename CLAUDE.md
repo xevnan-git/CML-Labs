@@ -108,6 +108,10 @@ dnsmasq, chrome, firefox, splunk, thousandeyes). Topics that need these are mark
   route beats it) and takes no `track`. A next hop not on a connected subnet is silently ignored. `ip sla` entries
   can't be edited while running (`no ip sla N`, re-enter, re-schedule). Don't `telnet` from a router over pyATS: it
   wedges the session.
+- **NTP on IOL-XE 17.18 (verified 2026-11-04):** each level of an NTP hierarchy spends ~15 min in drift
+  measurement before "synchronized" (master included), so 3 levels ≈ 45–50 min; `reach`/packet counters move
+  within a poll. `debug ntp packet` (not `packets`). A lone `ntp access-group serve-only` also blocks the router's
+  own server replies; add a `peer` group.
 - **Annotation `border_style` differs by path:** CML's own file format (the import API and the Lab Repository indexer)
   only accepts `''` (solid), `'2,2'` (dotted) or `'4,2'` (dashed). The MCP `create_full_lab_topology` tool
   wants `solid`/`dotted`/`dashed` instead. Committed `.yaml` files must use CML's form, which `validate.py` checks. A

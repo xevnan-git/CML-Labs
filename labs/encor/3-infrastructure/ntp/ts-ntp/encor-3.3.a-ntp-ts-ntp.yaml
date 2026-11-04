@@ -1,0 +1,566 @@
+lab:
+  title: '[TSHOOT] ENCOR 3.3.a NTP'
+  description: 'Troubleshooting: after an NTP hardening change, none of the routers keep the right time.'
+  notes: |
+    # NTP — Troubleshooting Lab
+
+    > **Blueprint:** ENCOR 3.3.a — Interpret network time protocol configurations such as NTP and PTP
+    > **Mode:** Troubleshooting · **Nodes:** 4 licensed (4 routers) · **Faults:** 5 · **Difficulty:** 3 of 3
+
+    <!--
+    This README is copied verbatim into the lab's CML Notes. It must NOT reveal the faults: no hints, no root cause.
+    Hints and the solution live only in solution/README.md in the repo.
+    Order: scenario first (ticket, goal, design), reference material (access, topology, addressing) at the bottom.
+    -->
+
+    ## Ticket
+
+    > **#6402 — Router clocks wrong after the NTP hardening change**
+    > "Our audit asked for authenticated NTP, so last week we added keys and access control to the NTP setup on
+    > R1, R2 and R3. Since then the log timestamps don't line up between routers, `show clock` puts a `*` in front
+    > of the time on all three, and the SIEM rejects their syslog. NTP1 is fine; it's the routers. Keep the
+    > hardening, just make time work again."
+
+    ## Done when
+    - `R1# show ntp status` says **Clock is synchronized, stratum 4, reference is 10.255.255.100**.
+    - `R2# show ntp status` and `R3# show ntp status` say **Clock is synchronized, stratum 5, reference is
+      10.255.255.1**.
+    - On R2 and R3, `show ntp associations` lists the other one (10.255.255.3 / 10.255.255.2) as a peer with a
+      non-zero **reach**.
+    - `show clock` on every router shows the time **without** a leading `*` or `.`.
+
+    NTP is slow on purpose: a router measures its clock drift for about **15 minutes** after its server becomes
+    usable before it says *synchronized*, and each level waits for the one above, so the whole hierarchy needs about
+    **45 minutes** after the last fix. You don't have to wait to know whether a fix worked: `show ntp associations`
+    (the **reach** column and the `*`) and `show ntp associations detail` (packet counters) change within a poll or
+    two (64 seconds).
+
+    ## Rules
+    - **Change only R1, R2 and R3.** NTP1 is the time source and is configured correctly; you may run `show`
+      commands on it.
+    - Keep the hardening: authentication on every router with key 1, `ntp source Loopback0`, and R1's two
+      access-groups with the same ACL names. Don't remove any of them to make the problem go away.
+    - There's more than one fault, and fixing one may reveal the next.
+    - Hints and the full solution are in the lab repository (`solution/README.md` in this lab's folder), not in CML.
+
+    ## Intended design
+    **Routing (working, unchanged):** OSPF area 0 on every link and every Loopback0. R3's Loopback1
+    (172.19.0.0/24) is reserved for a future management network and is deliberately not in OSPF yet.
+
+    **Time:** every router uses `clock timezone EST -5 0` and `clock summer-time EDT recurring`, and timestamps its
+    logs in local time.
+
+    **NTP hierarchy:**
+
+    | Router | Role | Gets time from | Expected stratum |
+    |---|---|---|---|
+    | NTP1 | `ntp master 3` (stands in for an internet time source) | its own clock | 3 |
+    | R1 | client of NTP1, server for R2 and R3 | NTP1, 10.255.255.100 | 4 |
+    | R2 | client of R1, peer of R3 | R1, 10.255.255.1 | 5 |
+    | R3 | client of R1, peer of R2 | R1, 10.255.255.1 | 5 |
+
+    - **Every router** sources NTP from its Loopback0 (`ntp source Loopback0`), and all servers and peers are
+      addressed by Loopback0.
+    - **Authentication everywhere:** key 1, MD5, key string `NTPsecret`, `ntp authenticate`, key 1 trusted, and
+      `key 1` on every `ntp server` / `ntp peer` line.
+    - **R1's access control:**
+      - `ntp access-group peer NTP-PEERS`: R1 may synchronize to NTP1 (10.255.255.100) only.
+      - `ntp access-group serve-only NTP-CLIENTS`: R2 and R3 (their NTP source addresses) may get time from R1, but
+        R1 never synchronizes to them.
+    - **R2 ↔ R3 peering** (`ntp peer`), so either can keep the other in time if R1 is lost.
+
+    ## Expected behavior
+    - About 45 minutes after boot (15 per level), every router is synchronized to the stratum listed above.
+    - Log timestamps on all four routers agree to the second, in EST/EDT.
+    - No router synchronizes to anything other than its designed server.
+
+    ---
+
+    # Reference
+
+    ## Lab access
+
+    | Node | Type | Username | Password | Enable |
+    |---|---|---|---|---|
+    | NTP1 | IOL-XE router (time source; look, don't change) | cisco | cisco | cisco |
+    | R1, R2, R3 | IOL-XE routers | cisco | cisco | cisco |
+
+    Open a console from the node in CML (right-click → **Console**). Each node also has a label on the canvas with its
+    login and addresses.
+
+    ## Topology
+
+    ```
+                           NTP1   Lo0 10.255.255.100  (ntp master 3)
+                             | e0/0
+                        10.1.100.0/24
+                             | e0/0
+                            R1    Lo0 10.255.255.1
+                   e0/1   /    \   e0/2
+             10.1.2.0/24 /      \ 10.1.3.0/24
+                   e0/0 /        \ e0/0
+                      R2 -------- R3
+      Lo0 10.255.255.2  e0/1  e0/1  Lo0 10.255.255.3
+                       10.2.3.0/24  Lo1 172.19.0.1/24 (not in OSPF)
+    ```
+
+    ## Addressing (as designed)
+
+    | Node | Interface | IPv4 | Connects to |
+    |---|---|---|---|
+    | NTP1 | Loopback0 | 10.255.255.100/32 | — |
+    | NTP1 | Ethernet0/0 | 10.1.100.100/24 | R1 e0/0 |
+    | R1 | Loopback0 | 10.255.255.1/32 | — |
+    | R1 | Ethernet0/0 | 10.1.100.1/24 | NTP1 e0/0 |
+    | R1 | Ethernet0/1 | 10.1.2.1/24 | R2 e0/0 |
+    | R1 | Ethernet0/2 | 10.1.3.1/24 | R3 e0/0 |
+    | R2 | Loopback0 | 10.255.255.2/32 | — |
+    | R2 | Ethernet0/0 | 10.1.2.2/24 | R1 e0/1 |
+    | R2 | Ethernet0/1 | 10.2.3.2/24 | R3 e0/1 |
+    | R3 | Loopback0 | 10.255.255.3/32 | — |
+    | R3 | Loopback1 | 172.19.0.1/24 | not in OSPF (future management) |
+    | R3 | Ethernet0/0 | 10.1.3.3/24 | R1 e0/2 |
+    | R3 | Ethernet0/1 | 10.2.3.3/24 | R2 e0/1 |
+  version: 0.3.0
+nodes:
+- id: n0
+  label: NTP1
+  x: 0
+  y: -300
+  node_definition: iol-xe
+  image_definition: iol-xe-17-18-02
+  interfaces:
+  - id: i0
+    label: Loopback0
+    type: loopback
+  - id: i1
+    label: Ethernet0/0
+    type: physical
+    slot: 0
+  - id: i2
+    label: Ethernet0/1
+    type: physical
+    slot: 1
+  - id: i3
+    label: Ethernet0/2
+    type: physical
+    slot: 2
+  - id: i4
+    label: Ethernet0/3
+    type: physical
+    slot: 3
+  configuration:
+  - name: ios_config.txt
+    content: |
+      hostname NTP1
+      no ip domain lookup
+      ip domain name lab.local
+      enable secret cisco
+      username cisco privilege 15 secret cisco
+      !
+      clock timezone EST -5 0
+      clock summer-time EDT recurring
+      service timestamps log datetime msec localtime show-timezone
+      service timestamps debug datetime msec localtime show-timezone
+      !
+      interface Loopback0
+       description NTP service address
+       ip address 10.255.255.100 255.255.255.255
+       ip ospf 1 area 0
+      !
+      interface Ethernet0/0
+       description R1 e0/0
+       ip address 10.1.100.100 255.255.255.0
+       ip ospf 1 area 0
+       no shutdown
+      !
+      interface Ethernet0/1
+       no ip address
+       shutdown
+      !
+      interface Ethernet0/2
+       no ip address
+       shutdown
+      !
+      interface Ethernet0/3
+       no ip address
+       shutdown
+      !
+      router ospf 1
+       router-id 10.255.255.100
+      !
+      ntp authentication-key 1 md5 NTPsecret
+      ntp authenticate
+      ntp trusted-key 1
+      ntp source Loopback0
+      ntp master 3
+      !
+      line con 0
+       exec-timeout 0 0
+       logging synchronous
+       privilege level 15
+      line vty 0 4
+       login local
+       transport input telnet ssh
+      !
+      end
+- id: n1
+  label: R1
+  x: 0
+  y: -50
+  node_definition: iol-xe
+  image_definition: iol-xe-17-18-02
+  interfaces:
+  - id: i0
+    label: Loopback0
+    type: loopback
+  - id: i1
+    label: Ethernet0/0
+    type: physical
+    slot: 0
+  - id: i2
+    label: Ethernet0/1
+    type: physical
+    slot: 1
+  - id: i3
+    label: Ethernet0/2
+    type: physical
+    slot: 2
+  - id: i4
+    label: Ethernet0/3
+    type: physical
+    slot: 3
+  configuration:
+  - name: ios_config.txt
+    content: |
+      hostname R1
+      no ip domain lookup
+      ip domain name lab.local
+      enable secret cisco
+      username cisco privilege 15 secret cisco
+      !
+      clock timezone EST -5 0
+      clock summer-time EDT recurring
+      service timestamps log datetime msec localtime show-timezone
+      service timestamps debug datetime msec localtime show-timezone
+      !
+      interface Loopback0
+       ip address 10.255.255.1 255.255.255.255
+       ip ospf 1 area 0
+      !
+      interface Ethernet0/0
+       description NTP1 e0/0
+       ip address 10.1.100.1 255.255.255.0
+       ip ospf 1 area 0
+       no shutdown
+      !
+      interface Ethernet0/1
+       description R2 e0/0
+       ip address 10.1.2.1 255.255.255.0
+       ip ospf 1 area 0
+       no shutdown
+      !
+      interface Ethernet0/2
+       description R3 e0/0
+       ip address 10.1.3.1 255.255.255.0
+       ip ospf 1 area 0
+       no shutdown
+      !
+      interface Ethernet0/3
+       no ip address
+       shutdown
+      !
+      router ospf 1
+       router-id 10.255.255.1
+      !
+      ip access-list standard NTP-PEERS
+       10 permit 10.255.255.100
+      ip access-list standard NTP-CLIENTS
+       10 permit 10.1.2.2
+       20 permit 10.255.255.3
+      !
+      ntp authentication-key 1 md5 NTPsecret1
+      ntp authenticate
+      ntp trusted-key 1
+      ntp source Loopback0
+      ntp access-group peer NTP-PEERS
+      ntp access-group serve-only NTP-CLIENTS
+      ntp server 10.255.255.100 key 1
+      !
+      line con 0
+       exec-timeout 0 0
+       logging synchronous
+       privilege level 15
+      line vty 0 4
+       login local
+       transport input telnet ssh
+      !
+      end
+- id: n2
+  label: R2
+  x: -250
+  y: 200
+  node_definition: iol-xe
+  image_definition: iol-xe-17-18-02
+  interfaces:
+  - id: i0
+    label: Loopback0
+    type: loopback
+  - id: i1
+    label: Ethernet0/0
+    type: physical
+    slot: 0
+  - id: i2
+    label: Ethernet0/1
+    type: physical
+    slot: 1
+  - id: i3
+    label: Ethernet0/2
+    type: physical
+    slot: 2
+  - id: i4
+    label: Ethernet0/3
+    type: physical
+    slot: 3
+  configuration:
+  - name: ios_config.txt
+    content: |
+      hostname R2
+      no ip domain lookup
+      ip domain name lab.local
+      enable secret cisco
+      username cisco privilege 15 secret cisco
+      !
+      clock timezone EST -5 0
+      clock summer-time EDT recurring
+      service timestamps log datetime msec localtime show-timezone
+      service timestamps debug datetime msec localtime show-timezone
+      !
+      interface Loopback0
+       ip address 10.255.255.2 255.255.255.255
+       ip ospf 1 area 0
+      !
+      interface Ethernet0/0
+       description R1 e0/1
+       ip address 10.1.2.2 255.255.255.0
+       ip ospf 1 area 0
+       no shutdown
+      !
+      interface Ethernet0/1
+       description R3 e0/1
+       ip address 10.2.3.2 255.255.255.0
+       ip ospf 1 area 0
+       no shutdown
+      !
+      interface Ethernet0/2
+       no ip address
+       shutdown
+      !
+      interface Ethernet0/3
+       no ip address
+       shutdown
+      !
+      router ospf 1
+       router-id 10.255.255.2
+      !
+      ntp authentication-key 1 md5 NTPsecret
+      ntp authenticate
+      ntp source Loopback0
+      ntp server 10.255.255.1 key 1
+      ntp peer 10.255.255.3 key 1
+      !
+      line con 0
+       exec-timeout 0 0
+       logging synchronous
+       privilege level 15
+      line vty 0 4
+       login local
+       transport input telnet ssh
+      !
+      end
+- id: n3
+  label: R3
+  x: 250
+  y: 200
+  node_definition: iol-xe
+  image_definition: iol-xe-17-18-02
+  interfaces:
+  - id: i0
+    label: Loopback0
+    type: loopback
+  - id: i1
+    label: Ethernet0/0
+    type: physical
+    slot: 0
+  - id: i2
+    label: Ethernet0/1
+    type: physical
+    slot: 1
+  - id: i3
+    label: Ethernet0/2
+    type: physical
+    slot: 2
+  - id: i4
+    label: Ethernet0/3
+    type: physical
+    slot: 3
+  configuration:
+  - name: ios_config.txt
+    content: |
+      hostname R3
+      no ip domain lookup
+      ip domain name lab.local
+      enable secret cisco
+      username cisco privilege 15 secret cisco
+      !
+      clock timezone EST -5 0
+      clock summer-time EDT recurring
+      service timestamps log datetime msec localtime show-timezone
+      service timestamps debug datetime msec localtime show-timezone
+      !
+      interface Loopback0
+       ip address 10.255.255.3 255.255.255.255
+       ip ospf 1 area 0
+      !
+      interface Loopback1
+       description future management network (not in OSPF yet)
+       ip address 172.19.0.1 255.255.255.0
+      !
+      interface Ethernet0/0
+       description R1 e0/2
+       ip address 10.1.3.3 255.255.255.0
+       ip ospf 1 area 0
+       no shutdown
+      !
+      interface Ethernet0/1
+       description R2 e0/1
+       ip address 10.2.3.3 255.255.255.0
+       ip ospf 1 area 0
+       no shutdown
+      !
+      interface Ethernet0/2
+       no ip address
+       shutdown
+      !
+      interface Ethernet0/3
+       no ip address
+       shutdown
+      !
+      router ospf 1
+       router-id 10.255.255.3
+      !
+      ntp authentication-key 1 md5 NTPsecret
+      ntp authenticate
+      ntp trusted-key 1
+      ntp source Loopback1
+      ntp server 10.255.255.3 key 1
+      ntp peer 10.255.255.2 key 1
+      !
+      line con 0
+       exec-timeout 0 0
+       logging synchronous
+       privilege level 15
+      line vty 0 4
+       login local
+       transport input telnet ssh
+      !
+      end
+links:
+- id: l0
+  n1: n1
+  i1: i1
+  n2: n0
+  i2: i1
+- id: l1
+  n1: n1
+  i1: i2
+  n2: n2
+  i2: i1
+- id: l2
+  n1: n1
+  i1: i3
+  n2: n3
+  i2: i1
+- id: l3
+  n1: n2
+  i1: i2
+  n2: n3
+  i2: i2
+annotations:
+- type: text
+  text_content: |-
+    NTP1  time source  cisco/cisco
+    Lo0   10.255.255.100/32
+    e0/0  10.1.100.100/24 (R1)
+  x1: -70
+  y1: -260
+  rotation: 0
+  text_bold: false
+  text_italic: false
+  text_size: 10
+  text_unit: pt
+  text_font: monospace
+  color: '#5A5A5AFF'
+  border_color: '#00000000'
+  border_style: ''
+  thickness: 1
+  z_index: 1
+- type: text
+  text_content: |-
+    R1  cisco/cisco
+    Lo0   10.255.255.1/32
+    e0/0  10.1.100.1/24 (NTP1)
+    e0/1  10.1.2.1/24   (R2)
+    e0/2  10.1.3.1/24   (R3)
+  x1: -70
+  y1: -10
+  rotation: 0
+  text_bold: false
+  text_italic: false
+  text_size: 10
+  text_unit: pt
+  text_font: monospace
+  color: '#5A5A5AFF'
+  border_color: '#00000000'
+  border_style: ''
+  thickness: 1
+  z_index: 1
+- type: text
+  text_content: |-
+    R2  cisco/cisco
+    Lo0   10.255.255.2/32
+    e0/0  10.1.2.2/24 (R1)
+    e0/1  10.2.3.2/24 (R3)
+  x1: -320
+  y1: 240
+  rotation: 0
+  text_bold: false
+  text_italic: false
+  text_size: 10
+  text_unit: pt
+  text_font: monospace
+  color: '#5A5A5AFF'
+  border_color: '#00000000'
+  border_style: ''
+  thickness: 1
+  z_index: 1
+- type: text
+  text_content: |-
+    R3  cisco/cisco
+    Lo0   10.255.255.3/32
+    Lo1   172.19.0.1/24 (not in OSPF)
+    e0/0  10.1.3.3/24 (R1)
+    e0/1  10.2.3.3/24 (R2)
+  x1: 180
+  y1: 240
+  rotation: 0
+  text_bold: false
+  text_italic: false
+  text_size: 10
+  text_unit: pt
+  text_font: monospace
+  color: '#5A5A5AFF'
+  border_color: '#00000000'
+  border_style: ''
+  thickness: 1
+  z_index: 1

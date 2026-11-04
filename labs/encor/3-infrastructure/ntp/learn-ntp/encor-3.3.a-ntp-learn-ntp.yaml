@@ -1,0 +1,814 @@
+lab:
+  title: '[LEARN] ENCOR 3.3.a NTP'
+  description: 'Learning: build an NTP hierarchy (master, client, peers), read stratum and associations, then secure it with MD5 authentication, ntp source and access-groups.'
+  notes: |
+    # NTP — Learning Lab
+
+    > **Blueprint:** ENCOR 3.3.a — Interpret network time protocol configurations such as NTP and PTP
+    > **Mode:** Learning (guided build) · **Nodes:** 4 licensed (4 routers) · **Time:** ~60 min (half of it waiting for NTP)
+
+    <!--
+    This README is copied verbatim into the lab's CML Notes (tools/sync_notes.py), so it must read well inside CML:
+    plain Markdown, ASCII diagrams (no Mermaid), no links to solution files.
+    Order: objectives and steps first; lab access, topology and addressing in the Reference section at the bottom.
+    -->
+
+    ## What you'll learn
+    - Set the time zone and summer time, and make logs show local time.
+    - Build an NTP hierarchy: a master (NTP1), a client that is also a server (R1), and two clients that peer with
+      each other (R2, R3).
+    - Read **stratum**, `show ntp associations` (`*`, `~`, **reach**) and `show ntp status`, and know how long NTP
+      takes and why.
+    - Secure NTP: MD5 authentication (`ntp authenticate`, `ntp trusted-key`), `ntp source`, and
+      `ntp access-group peer | serve-only`.
+    - Know where PTP fits (concept only; there's no PTP-capable image in this lab).
+
+    ## Starting point
+    Logins, the topology diagram and the addressing table are in **Reference** at the end of this guide.
+
+    The routers boot with addresses and OSPF area 0 running everywhere (every Loopback0 is reachable). There's no
+    NTP and no time zone. **NTP1** plays the internet time source; in real life it would be a GPS clock or
+    `time.nist.gov`. R3's Loopback1 is not in OSPF (it's used in the troubleshooting lab).
+
+    **Plan your time.** NTP is deliberately slow. On IOS-XE a router measures its clock drift for about **15
+    minutes** before it calls itself synchronized, and every level of the hierarchy does this in turn. Steps 2 to 5
+    take about 15 minutes to type; then Step 6 waits for the hierarchy to settle. That's normal NTP behavior, not a
+    lab problem.
+
+    ## Step 1 — Clock basics: time zone, summer time, log timestamps
+    **R1**
+    ```
+    show clock detail
+    ```
+    **Output (captured)**
+    ```
+    *21:41:56.731 UTC Wed Nov 4 2026
+    Time source is hardware calendar
+    ```
+    Look for: the leading **`*`**: the router doesn't trust its time ("not authoritative"). It's running from the
+    hardware calendar, in UTC.
+
+    On **all four routers** (NTP1, R1, R2, R3):
+    ```
+    configure terminal
+    clock timezone EST -5 0
+    clock summer-time EDT recurring
+    service timestamps log datetime msec localtime show-timezone
+    service timestamps debug datetime msec localtime show-timezone
+    end
+    show clock detail
+    ```
+    **Output (captured, R1)**
+    ```
+    *16:43:25.959 EST Wed Nov 4 2026
+    Time source is hardware calendar
+    Summer time starts 02:00:00 EST Sun Mar 14 2027
+    Summer time ends 02:00:00 EDT Sun Nov 7 2027
+    ```
+    > **Why:** NTP always carries **UTC**. The time zone is a local display setting, so every router in one company
+    > should use the same one (or all stay in UTC), or logs from different routers won't line up. `recurring` with no
+    > dates uses the US rules. The `service timestamps` lines make syslog and debug messages show local time with
+    > milliseconds and the zone name: that's what you compare across routers when you troubleshoot.
+
+    ## Step 2 — NTP1 becomes the time source
+    **NTP1**
+    ```
+    configure terminal
+    ntp source Loopback0
+    ntp master 3
+    end
+    show ntp associations
+    show ntp status
+    ```
+    **Output (captured, trimmed)**
+    ```
+      address         ref clock       st   when   poll reach  delay  offset   disp
+    *~127.127.1.1     .LOCL.           2      0     16    77  0.000   0.000 188.67
+
+    Clock is unsynchronized, stratum 3, reference is 127.127.1.1
+    loopfilter state is 'FREQ' (Drift being measured), drift is 0.000000000 s/s
+    ```
+    > **Why:**
+    > - `ntp master 3` makes the router trust its own clock and serve it at **stratum 3**. Internally it's a fake
+    >   reference clock, 127.127.1.1 (`.LOCL.`) at stratum 2, and NTP1 is one level below it. Use `ntp master` only in
+    >   a lab or an isolated network: a router's own clock isn't accurate.
+    > - **Stratum** = distance from a real reference clock. Stratum 1 is attached to GPS or an atomic clock; each
+    >   level of NTP adds 1; **16 means unsynchronized**.
+    > - **`loopfilter state is 'FREQ'`**: NTP1 is measuring how fast its clock drifts. Until that finishes, about
+    >   15 minutes, it says *unsynchronized* and **won't serve time to anybody**. Carry on; you'll see the effect in
+    >   Step 3.
+
+    ## Step 3 — R1: client of NTP1
+    **R1**
+    ```
+    configure terminal
+    ntp source Loopback0
+    ntp server 10.255.255.100
+    end
+    ```
+    **Output (captured)**
+    ```
+     SECURITY WARNING - Module: NTP, Command: ntp server 10.255.255.100 <cr>, Reason: NTP configuration lacks
+     authentication, allowing potential time manipulation attacks, ...
+    ```
+    IOS-XE 17.18 warns about unauthenticated NTP. You'll add authentication in Step 5.
+
+    Wait two minutes, then:
+
+    **R1**
+    ```
+    show ntp associations
+    show ntp associations detail | include configured|our mode|assoc in
+    ```
+    **Output (captured)**
+    ```
+      address         ref clock       st   when   poll reach  delay  offset   disp
+     ~10.255.255.100  .INIT.          16     52     64     0  0.000   0.000 15937.
+     * sys.peer, # selected, + candidate, - outlyer, x falseticker, ~ configured
+
+    10.255.255.100 configured, ipv4, insane, invalid, unsynced, stratum 16
+    our mode client, peer mode unspec, our poll intvl 64, peer poll intvl 64
+    assoc in packets 13, assoc out packets 13, assoc error packets 13
+    ```
+    Look for:
+    - **`~`** = an association you configured. When it's chosen as the time source it gets a **`*`** (sys.peer).
+    - **reach** is an 8-bit history of the last 8 polls in octal: 0 means none of them was usable, **377** means all
+      8 were.
+    - **poll 64**: R1 asks every 64 seconds at first, and stretches that toward 1024 seconds once it's stable.
+    - R1 *does* get answers (13 in), but every one is an **error**: NTP1 is still unsynchronized (Step 2), and
+      a client ignores time from a server that isn't synchronized itself.
+
+    > **Why `ntp source Loopback0`:** NTP packets otherwise leave from the outgoing interface address, which changes
+    > if the path changes. A loopback is always up and reachable through any path. It also gives the server one
+    > stable address to authorize (Step 6).
+
+    ## Step 4 — R2 and R3: clients of R1, peers of each other
+    **R2**
+    ```
+    configure terminal
+    ntp source Loopback0
+    ntp server 10.255.255.1
+    ntp peer 10.255.255.3
+    end
+    ```
+    **R3**
+    ```
+    configure terminal
+    ntp source Loopback0
+    ntp server 10.255.255.1
+    ntp peer 10.255.255.2
+    end
+    ```
+    **R2**
+    ```
+    show ntp associations detail | include configured|our mode
+    ```
+    **Output (captured)**
+    ```
+    10.255.255.1 configured, ipv4, insane, invalid, unsynced, stratum 16
+    our mode client, peer mode unspec, our poll intvl 64, peer poll intvl 64
+    10.255.255.3 configured, ipv4, insane, invalid, unsynced, stratum 16
+    our mode active, peer mode unspec, our poll intvl 64, peer poll intvl 64
+    ```
+    > **Why:**
+    > - `ntp server` = **client mode**: R2 takes time from R1 but never gives R1 time.
+    > - `ntp peer` = **symmetric active mode**: R2 and R3 may sync to *each other*, whichever is closer to a good
+    >   source. If R1 dies, the two keep the same time instead of drifting apart.
+    > - Any router that has synchronized also answers clients automatically: R1 serves R2 and R3 without any
+    >   extra command. That's how a hierarchy forms: NTP1 (3) → R1 (4) → R2, R3 (5).
+
+    ## Step 5 — Authentication
+    On **all four routers**:
+    ```
+    configure terminal
+    ntp authentication-key 1 md5 NTPsecret
+    ntp authenticate
+    ntp trusted-key 1
+    end
+    ```
+    Then attach the key to each server and peer line (entering the line again replaces it):
+
+    **R1:** `ntp server 10.255.255.100 key 1`
+    **R2:** `ntp server 10.255.255.1 key 1` and `ntp peer 10.255.255.3 key 1`
+    **R3:** `ntp server 10.255.255.1 key 1` and `ntp peer 10.255.255.2 key 1`
+
+    **R2**
+    ```
+    show running-config | include ntp
+    show ntp associations detail | include configured
+    ```
+    **Output (captured)**
+    ```
+    ntp authentication-key 1 md5 11272D350417081E013E 7
+    ntp authenticate
+    ntp trusted-key 1
+    ntp source Loopback0
+    ntp server 10.255.255.1 key 1
+    ntp peer 10.255.255.3 key 1
+
+    10.255.255.1 configured, ipv4, authenticated (' ' reject), authtype (md5), insane, invalid, unsynced, stratum 16
+    10.255.255.3 configured, ipv4, authenticated (' ' reject), authtype (md5), insane, invalid, unsynced, stratum 16
+    ```
+    > **Why each command:**
+    > - `ntp authentication-key 1 md5 …` defines the key. It must be the same string on both ends. The running config
+    >   shows it as type 7 (`… 7`), which looks different on each router even for the same key, so never compare
+    >   those strings; re-enter the key when in doubt.
+    > - `ntp authenticate` turns checking on: this router only **synchronizes to** sources whose packets carry a
+    >   valid digest.
+    > - `ntp trusted-key 1` lists the keys that count. A key that's defined but not trusted is useless; IOS-XE
+    >   doesn't even send requests with it.
+    > - `key 1` on the `server`/`peer` line tells this router to sign its own requests. The server answers with the
+    >   same key. If the strings don't match, the server replies with a **crypto-NAK** and the client logs
+    >   `NTP Core (ERROR): Invalid-NAK error`.
+    >
+    > IOS-XE 17.18 prints `Weak cipher(s) are present` for MD5 and also offers `hmac-sha1`, `hmac-sha2-256` and
+    > `cmac-aes-128`. The exam still uses MD5; in production, pick SHA-2 if both ends support it.
+
+    ## Step 6 — Restrict who may use R1 (access-groups)
+    R1 is a server for R2 and R3. Lock it down: R1 may sync **from** NTP1 only, and R2 and R3 may only **ask** it for
+    time.
+
+    **R1**
+    ```
+    configure terminal
+    ip access-list standard NTP-PEERS
+     10 permit 10.255.255.100
+    ip access-list standard NTP-CLIENTS
+     10 permit 10.255.255.2
+     20 permit 10.255.255.3
+    exit
+    ntp access-group serve-only NTP-CLIENTS
+    end
+    ```
+    Wait two minutes (two polls):
+
+    **R1**
+    ```
+    show ntp associations detail | include assoc in
+    show ip access-lists
+    ```
+    **Output (captured)**
+    ```
+    before:  assoc in packets 10, assoc out packets 10, assoc error packets 10
+    after:   assoc in packets 10, assoc out packets 14, assoc error packets 10
+
+    Standard IP access list NTP-CLIENTS
+        10 permit 10.255.255.2 (10 matches)
+        20 permit 10.255.255.3 (7 matches)
+    Standard IP access list NTP-PEERS
+        10 permit 10.255.255.100
+    ```
+    Look for: R1 keeps sending to NTP1 (out goes up) but accepts **nothing** back (in stays at 10). As soon as any
+    `ntp access-group` exists, everything it doesn't permit is refused, **including the replies from R1's own
+    server**.
+
+    Now add the peer group:
+
+    **R1**
+    ```
+    configure terminal
+    ntp access-group peer NTP-PEERS
+    end
+    ```
+    A few minutes later, once NTP1 has finished its drift measurement (about 15 minutes after Step 2):
+
+    **NTP1:** `show ntp status | include Clock` · **R1:** `show ntp associations`, `show ntp status | include
+    Clock|loopfilter`, `show ip access-lists`
+
+    **Output (captured)**
+    ```
+    NTP1: Clock is synchronized, stratum 3, reference is 127.127.1.1
+
+    R1:   address         ref clock       st   when   poll reach  delay  offset   disp
+         *~10.255.255.100  127.127.1.1      3     42     64     7  2.000   0.000 65.154
+
+    R1:  Clock is unsynchronized, stratum 4, reference is 10.255.255.100
+         loopfilter state is 'FREQ' (Drift being measured), drift is 0.000000000 s/s
+
+    R1:  Standard IP access list NTP-CLIENTS
+             10 permit 10.255.255.2 (29 matches)
+             20 permit 10.255.255.3 (31 matches)
+         Standard IP access list NTP-PEERS
+             10 permit 10.255.255.100 (9 matches)
+    ```
+    Look for: R1 has chosen NTP1 (**`*`**, reach 7 = the last three polls were good), and NTP-PEERS counts NTP1's
+    replies. R1 now starts *its own* 15-minute drift measurement: chosen source, but still "unsynchronized".
+
+    > **Why:** the four access-group types, from most to least access:
+    > - **peer**: may send time requests *and* R1 may synchronize to it. NTP1 needs this.
+    > - **serve**: may send requests and control queries, but R1 won't sync to it.
+    > - **serve-only**: may only send time requests. Right for clients like R2 and R3.
+    > - **query-only**: may only send control queries (`ntpq`-style). No time.
+    >
+    > The ACLs match the **source address** of the NTP packet: the clients' Loopback0, because of
+    > `ntp source Loopback0` in Step 4. An ACL written with R2's interface address 10.1.2.2 would lock R2 out.
+    >
+    > R2 and R3 don't need a `peer` group for each other: they have no access-groups at all, so they accept anyone
+    > with the right key.
+
+    ## Step 7 — Wait for the hierarchy, then verify
+    Each level needs its 15-minute drift measurement after the level above is synchronized. Count on **about 45
+    minutes from Step 2** until R2 and R3 are synchronized. Check progress with `show ntp associations`: the `*`
+    moves in long before the status says *synchronized*.
+
+    **R1, R2, R3**
+    ```
+    show ntp associations
+    show ntp status | include Clock
+    show clock
+    ```
+    **Output (captured, about 50 minutes after Step 2)**
+    ```
+    R1:   address         ref clock       st   when   poll reach  delay  offset   disp
+         *~10.255.255.100  127.127.1.1      3     12    128   377  1.000   1.036  4.081
+         Clock is synchronized, stratum 4, reference is 10.255.255.100
+         17:33:47.928 EST Wed Nov 4 2026
+
+    R2:   address         ref clock       st   when   poll reach  delay  offset   disp
+         *~10.255.255.1    10.255.255.100   4     39     64   377  1.000  -0.982  3.481
+          ~10.255.255.3    10.255.255.1     5     34     64     3  1.978   0.038 3939.3
+         Clock is synchronized, stratum 5, reference is 10.255.255.1
+         17:33:16.991 EST Wed Nov 4 2026
+
+    R3:  *~10.255.255.1    10.255.255.100   4      2     64   377  1.000  -1.034  3.514
+          ~10.255.255.2    10.255.255.1     5      5     64     3  2.022  -0.013 3939.7
+         Clock is synchronized, stratum 5, reference is 10.255.255.1
+         17:33:32.412 EST Wed Nov 4 2026
+    ```
+    Look for:
+    - **No `*` in front of the time** any more: the clock is now authoritative (`show clock detail` says
+      `Time source is NTP`).
+    - The **ref clock** column shows each source's own server: R2 sees R1 (stratum 4) getting time from
+      10.255.255.100.
+    - **reach 377** to the server: the last eight polls all worked. R1's poll interval has already grown to 128 s.
+    - The peer (R3 on R2, R2 on R3) is stratum 5, the same as the router itself, so it stays a backup: NTP prefers
+      the lower stratum. Its reach only starts counting once both peers are synchronized (3 = the last two polls).
+    - Offsets are around **1 ms**: that's the accuracy NTP gives on a LAN.
+
+    ## Final check
+    | Router | Command | Expect |
+    |---|---|---|
+    | NTP1 | `show ntp status` | synchronized, stratum 3, reference 127.127.1.1 |
+    | R1 | `show ntp status` | synchronized, stratum 4, reference 10.255.255.100 |
+    | R2, R3 | `show ntp status` | synchronized, stratum 5, reference 10.255.255.1 |
+    | R2, R3 | `show ntp associations` | `*~10.255.255.1`; the other one listed with a non-zero reach |
+    | R1 | `show ip access-lists` | all three ACL lines counting |
+    | all | `show clock` | no leading `*` |
+
+    ## PTP in one paragraph (concept only)
+    **PTP** (Precision Time Protocol, IEEE 1588) does the same job as NTP with far better accuracy: sub-microsecond
+    instead of milliseconds, because timestamps are taken in hardware at the port and switches along the path correct
+    for their own delay. A **grandmaster** clock (usually GPS-fed) is chosen by the Best Master Clock Algorithm;
+    **boundary clocks** sync to it on one port and serve it on others (like R1 here); **transparent clocks** just
+    add their residence time to the packets passing through. It's used where microseconds matter: trading, power
+    grids, broadcast video, 5G. Cisco enables it per switch (`ptp mode boundary`, `ptp domain`). The IOL images in
+    this lab have no PTP, so it isn't configured here.
+
+    ## Check yourself
+    - What does stratum 16 mean? Why is R2 stratum 5?
+    - R1 gets replies from NTP1 but `reach` stays 0. Name two reasons (one you saw in Step 3, one in Step 6).
+    - Why does `ntp trusted-key` matter when `ntp authenticate` is already on?
+    - What changes if R2 uses `ntp server 10.255.255.3` instead of `ntp peer 10.255.255.3`?
+    - R3 sources NTP from Loopback1 (not in OSPF). What happens, and which counter shows it first?
+    - R1's `show clock` starts with `*`, but `show ntp associations` shows `*~10.255.255.100`. Is anything wrong?
+    - Where would PTP be the better choice than NTP?
+
+    ---
+
+    # Reference
+
+    ## Lab access
+
+    | Node | Type | Username | Password | Enable |
+    |---|---|---|---|---|
+    | NTP1 | IOL-XE router (stands in for an internet time source) | cisco | cisco | cisco |
+    | R1, R2, R3 | IOL-XE routers | cisco | cisco | cisco |
+
+    Open a console from the node in CML (right-click → Console). Routers start in privileged EXEC.
+    Each node also has a label in the CML canvas with its login and addresses.
+
+    ## Topology
+
+    ```
+                           NTP1   Lo0 10.255.255.100
+                             | e0/0
+                        10.1.100.0/24
+                             | e0/0
+                            R1    Lo0 10.255.255.1
+                   e0/1   /    \   e0/2
+             10.1.2.0/24 /      \ 10.1.3.0/24
+                   e0/0 /        \ e0/0
+                      R2 -------- R3
+      Lo0 10.255.255.2  e0/1  e0/1  Lo0 10.255.255.3
+                       10.2.3.0/24  Lo1 172.19.0.1/24 (not in OSPF)
+    ```
+
+    ## Addressing
+
+    | Node | Interface | IPv4 | Connects to |
+    |---|---|---|---|
+    | NTP1 | Loopback0 | 10.255.255.100/32 | — |
+    | NTP1 | Ethernet0/0 | 10.1.100.100/24 | R1 e0/0 |
+    | R1 | Loopback0 | 10.255.255.1/32 | — |
+    | R1 | Ethernet0/0 | 10.1.100.1/24 | NTP1 e0/0 |
+    | R1 | Ethernet0/1 | 10.1.2.1/24 | R2 e0/0 |
+    | R1 | Ethernet0/2 | 10.1.3.1/24 | R3 e0/0 |
+    | R2 | Loopback0 | 10.255.255.2/32 | — |
+    | R2 | Ethernet0/0 | 10.1.2.2/24 | R1 e0/1 |
+    | R2 | Ethernet0/1 | 10.2.3.2/24 | R3 e0/1 |
+    | R3 | Loopback0 | 10.255.255.3/32 | — |
+    | R3 | Loopback1 | 172.19.0.1/24 | not in OSPF |
+    | R3 | Ethernet0/0 | 10.1.3.3/24 | R1 e0/2 |
+    | R3 | Ethernet0/1 | 10.2.3.3/24 | R2 e0/1 |
+
+    All interfaces except R3's Loopback1 run OSPF area 0 (preconfigured).
+  version: 0.3.0
+nodes:
+- id: n0
+  label: NTP1
+  x: 0
+  y: -300
+  node_definition: iol-xe
+  image_definition: iol-xe-17-18-02
+  interfaces:
+  - id: i0
+    label: Loopback0
+    type: loopback
+  - id: i1
+    label: Ethernet0/0
+    type: physical
+    slot: 0
+  - id: i2
+    label: Ethernet0/1
+    type: physical
+    slot: 1
+  - id: i3
+    label: Ethernet0/2
+    type: physical
+    slot: 2
+  - id: i4
+    label: Ethernet0/3
+    type: physical
+    slot: 3
+  configuration:
+  - name: ios_config.txt
+    content: |
+      hostname NTP1
+      no ip domain lookup
+      ip domain name lab.local
+      enable secret cisco
+      username cisco privilege 15 secret cisco
+      !
+      interface Loopback0
+       description NTP service address
+       ip address 10.255.255.100 255.255.255.255
+       ip ospf 1 area 0
+      !
+      interface Ethernet0/0
+       description R1 e0/0
+       ip address 10.1.100.100 255.255.255.0
+       ip ospf 1 area 0
+       no shutdown
+      !
+      interface Ethernet0/1
+       no ip address
+       shutdown
+      !
+      interface Ethernet0/2
+       no ip address
+       shutdown
+      !
+      interface Ethernet0/3
+       no ip address
+       shutdown
+      !
+      router ospf 1
+       router-id 10.255.255.100
+      !
+      line con 0
+       exec-timeout 0 0
+       logging synchronous
+       privilege level 15
+      line vty 0 4
+       login local
+       transport input telnet ssh
+      !
+      end
+- id: n1
+  label: R1
+  x: 0
+  y: -50
+  node_definition: iol-xe
+  image_definition: iol-xe-17-18-02
+  interfaces:
+  - id: i0
+    label: Loopback0
+    type: loopback
+  - id: i1
+    label: Ethernet0/0
+    type: physical
+    slot: 0
+  - id: i2
+    label: Ethernet0/1
+    type: physical
+    slot: 1
+  - id: i3
+    label: Ethernet0/2
+    type: physical
+    slot: 2
+  - id: i4
+    label: Ethernet0/3
+    type: physical
+    slot: 3
+  configuration:
+  - name: ios_config.txt
+    content: |
+      hostname R1
+      no ip domain lookup
+      ip domain name lab.local
+      enable secret cisco
+      username cisco privilege 15 secret cisco
+      !
+      interface Loopback0
+       ip address 10.255.255.1 255.255.255.255
+       ip ospf 1 area 0
+      !
+      interface Ethernet0/0
+       description NTP1 e0/0
+       ip address 10.1.100.1 255.255.255.0
+       ip ospf 1 area 0
+       no shutdown
+      !
+      interface Ethernet0/1
+       description R2 e0/0
+       ip address 10.1.2.1 255.255.255.0
+       ip ospf 1 area 0
+       no shutdown
+      !
+      interface Ethernet0/2
+       description R3 e0/0
+       ip address 10.1.3.1 255.255.255.0
+       ip ospf 1 area 0
+       no shutdown
+      !
+      interface Ethernet0/3
+       no ip address
+       shutdown
+      !
+      router ospf 1
+       router-id 10.255.255.1
+      !
+      line con 0
+       exec-timeout 0 0
+       logging synchronous
+       privilege level 15
+      line vty 0 4
+       login local
+       transport input telnet ssh
+      !
+      end
+- id: n2
+  label: R2
+  x: -250
+  y: 200
+  node_definition: iol-xe
+  image_definition: iol-xe-17-18-02
+  interfaces:
+  - id: i0
+    label: Loopback0
+    type: loopback
+  - id: i1
+    label: Ethernet0/0
+    type: physical
+    slot: 0
+  - id: i2
+    label: Ethernet0/1
+    type: physical
+    slot: 1
+  - id: i3
+    label: Ethernet0/2
+    type: physical
+    slot: 2
+  - id: i4
+    label: Ethernet0/3
+    type: physical
+    slot: 3
+  configuration:
+  - name: ios_config.txt
+    content: |
+      hostname R2
+      no ip domain lookup
+      ip domain name lab.local
+      enable secret cisco
+      username cisco privilege 15 secret cisco
+      !
+      interface Loopback0
+       ip address 10.255.255.2 255.255.255.255
+       ip ospf 1 area 0
+      !
+      interface Ethernet0/0
+       description R1 e0/1
+       ip address 10.1.2.2 255.255.255.0
+       ip ospf 1 area 0
+       no shutdown
+      !
+      interface Ethernet0/1
+       description R3 e0/1
+       ip address 10.2.3.2 255.255.255.0
+       ip ospf 1 area 0
+       no shutdown
+      !
+      interface Ethernet0/2
+       no ip address
+       shutdown
+      !
+      interface Ethernet0/3
+       no ip address
+       shutdown
+      !
+      router ospf 1
+       router-id 10.255.255.2
+      !
+      line con 0
+       exec-timeout 0 0
+       logging synchronous
+       privilege level 15
+      line vty 0 4
+       login local
+       transport input telnet ssh
+      !
+      end
+- id: n3
+  label: R3
+  x: 250
+  y: 200
+  node_definition: iol-xe
+  image_definition: iol-xe-17-18-02
+  interfaces:
+  - id: i0
+    label: Loopback0
+    type: loopback
+  - id: i1
+    label: Ethernet0/0
+    type: physical
+    slot: 0
+  - id: i2
+    label: Ethernet0/1
+    type: physical
+    slot: 1
+  - id: i3
+    label: Ethernet0/2
+    type: physical
+    slot: 2
+  - id: i4
+    label: Ethernet0/3
+    type: physical
+    slot: 3
+  configuration:
+  - name: ios_config.txt
+    content: |
+      hostname R3
+      no ip domain lookup
+      ip domain name lab.local
+      enable secret cisco
+      username cisco privilege 15 secret cisco
+      !
+      interface Loopback0
+       ip address 10.255.255.3 255.255.255.255
+       ip ospf 1 area 0
+      !
+      interface Loopback1
+       description future management network (not in OSPF yet)
+       ip address 172.19.0.1 255.255.255.0
+      !
+      interface Ethernet0/0
+       description R1 e0/2
+       ip address 10.1.3.3 255.255.255.0
+       ip ospf 1 area 0
+       no shutdown
+      !
+      interface Ethernet0/1
+       description R2 e0/1
+       ip address 10.2.3.3 255.255.255.0
+       ip ospf 1 area 0
+       no shutdown
+      !
+      interface Ethernet0/2
+       no ip address
+       shutdown
+      !
+      interface Ethernet0/3
+       no ip address
+       shutdown
+      !
+      router ospf 1
+       router-id 10.255.255.3
+      !
+      line con 0
+       exec-timeout 0 0
+       logging synchronous
+       privilege level 15
+      line vty 0 4
+       login local
+       transport input telnet ssh
+      !
+      end
+links:
+- id: l0
+  n1: n1
+  i1: i1
+  n2: n0
+  i2: i1
+- id: l1
+  n1: n1
+  i1: i2
+  n2: n2
+  i2: i1
+- id: l2
+  n1: n1
+  i1: i3
+  n2: n3
+  i2: i1
+- id: l3
+  n1: n2
+  i1: i2
+  n2: n3
+  i2: i2
+annotations:
+- type: text
+  text_content: |-
+    NTP1  time source  cisco/cisco
+    Lo0   10.255.255.100/32
+    e0/0  10.1.100.100/24 (R1)
+  x1: -70
+  y1: -260
+  rotation: 0
+  text_bold: false
+  text_italic: false
+  text_size: 10
+  text_unit: pt
+  text_font: monospace
+  color: '#5A5A5AFF'
+  border_color: '#00000000'
+  border_style: ''
+  thickness: 1
+  z_index: 1
+- type: text
+  text_content: |-
+    R1  cisco/cisco
+    Lo0   10.255.255.1/32
+    e0/0  10.1.100.1/24 (NTP1)
+    e0/1  10.1.2.1/24   (R2)
+    e0/2  10.1.3.1/24   (R3)
+  x1: -70
+  y1: -10
+  rotation: 0
+  text_bold: false
+  text_italic: false
+  text_size: 10
+  text_unit: pt
+  text_font: monospace
+  color: '#5A5A5AFF'
+  border_color: '#00000000'
+  border_style: ''
+  thickness: 1
+  z_index: 1
+- type: text
+  text_content: |-
+    R2  cisco/cisco
+    Lo0   10.255.255.2/32
+    e0/0  10.1.2.2/24 (R1)
+    e0/1  10.2.3.2/24 (R3)
+  x1: -320
+  y1: 240
+  rotation: 0
+  text_bold: false
+  text_italic: false
+  text_size: 10
+  text_unit: pt
+  text_font: monospace
+  color: '#5A5A5AFF'
+  border_color: '#00000000'
+  border_style: ''
+  thickness: 1
+  z_index: 1
+- type: text
+  text_content: |-
+    R3  cisco/cisco
+    Lo0   10.255.255.3/32
+    Lo1   172.19.0.1/24 (not in OSPF)
+    e0/0  10.1.3.3/24 (R1)
+    e0/1  10.2.3.3/24 (R2)
+  x1: 180
+  y1: 240
+  rotation: 0
+  text_bold: false
+  text_italic: false
+  text_size: 10
+  text_unit: pt
+  text_font: monospace
+  color: '#5A5A5AFF'
+  border_color: '#00000000'
+  border_style: ''
+  thickness: 1
+  z_index: 1

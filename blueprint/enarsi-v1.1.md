@@ -47,10 +47,10 @@ Legend: see [README](README.md).
 | ID | Topic | Plan | Status | Lab(s) | Notes |
 |---|---|---|---|---|---|
 | 3.1 | IOS AAA (TACACS+, RADIUS, local) | learn + ts | backlog | | Ubuntu SRV running tac_plus + FreeRADIUS (no Docker images); also ENCOR 5.1.b |
-| 3.2.a | IPv4 ACLs (standard, extended, time-based) | learn + ts | done (dev-tested) | [learn-acl](../labs/encor/5-security/infra-security/learn-acl/), [ts-acl](../labs/encor/5-security/infra-security/ts-acl/) | Shared with ENCOR 5.2.a |
+| 3.2.a | IPv4 ACLs (standard, extended, time-based) | learn + ts | done (dev-tested) | [learn-acl](../labs/encor/5-security/infra-security/learn-acl/), [ts-acl](../labs/encor/5-security/infra-security/ts-acl/), combined [learn-acl-copp](../labs/encor/5-security/infra-security/learn-acl-copp/), [ts-acl-copp](../labs/encor/5-security/infra-security/ts-acl-copp/) | Shared with ENCOR 5.2.a |
 | 3.2.b | IPv6 traffic filter | learn + ts | backlog | | |
 | 3.2.c | Unicast RPF | learn + ts | backlog | | |
-| 3.3 | CoPP (Telnet, SSH, HTTP(S), SNMP, EIGRP, OSPF, BGP) | learn + ts | done (dev-tested) | [learn-copp](../labs/encor/5-security/infra-security/learn-copp/), [ts-copp](../labs/encor/5-security/infra-security/ts-copp/) | Shared with ENCOR 5.2.b; SNMP/HTTP classified but not exercised (no client / IOL HTTP refuses) |
+| 3.3 | CoPP (Telnet, SSH, HTTP(S), SNMP, EIGRP, OSPF, BGP) | learn + ts | done (dev-tested) | [learn-copp](../labs/encor/5-security/infra-security/learn-copp/), [ts-copp](../labs/encor/5-security/infra-security/ts-copp/), combined [learn-acl-copp](../labs/encor/5-security/infra-security/learn-acl-copp/), [ts-acl-copp](../labs/encor/5-security/infra-security/ts-acl-copp/) | Shared with ENCOR 5.2.b; SNMP/HTTP classified but not exercised (no client / IOL HTTP refuses) |
 | 3.4 | IPv6 First Hop Security (RA guard, DHCP guard, binding table, ND inspection, source guard) | learn | backlog | | verify on IOL-L2-XE |
 
 ## 4.0 Infrastructure Services (25%) — `labs/enarsi/4-infra-services/`

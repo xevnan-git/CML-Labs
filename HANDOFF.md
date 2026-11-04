@@ -11,9 +11,9 @@ Every exam topic gets two labs:
 
 The user understands CCNP concepts but has seen little of it running, so labs teach by doing. Labs are built **on demand**: the user names the next topic.
 
-## Current status (2026-11-04, after 5.2.b)
-- **Repo:** https://github.com/xevnan-git/CML-Labs, branch `main`, everything committed and pushed (last lab commit
-  `e55bde9`). Local checkout: `C:\Claude\CML-Labs`. `validate.py`: 13/13 labs pass.
+## Current status (2026-11-04, after the 5.2.a-b combined pair)
+- **Repo:** https://github.com/xevnan-git/CML-Labs, branch `main`, everything committed and pushed. Local checkout:
+  `C:\Claude\CML-Labs`. `validate.py`: 15/15 labs pass.
 - **Built (all dev-tested on the 5-node server; none yet run on the 20-node server):**
 
   | Blueprint | Lab | Folder |
@@ -31,9 +31,11 @@ The user understands CCNP concepts but has seen little of it running, so labs te
   | ENCOR 5.2.a | `[TSHOOT] ENCOR 5.2.a ACLs` (5 faults, 4 on R1, 1 on R2) | `…/infra-security/ts-acl` |
   | ENCOR 5.2.b | `[LEARN] ENCOR 5.2.b CoPP` (also ENARSI 3.3) | `…/infra-security/learn-copp` |
   | ENCOR 5.2.b | `[TSHOOT] ENCOR 5.2.b CoPP` (5 faults, all on R1) | `…/infra-security/ts-copp` |
+  | ENCOR 5.2.a-b | `[LEARN] ENCOR 5.2.a-b ACLs and CoPP` (iACL + CoPP + vty ACL) | `…/infra-security/learn-acl-copp` |
+  | ENCOR 5.2.a-b | `[TSHOOT] ENCOR 5.2.a-b ACLs and CoPP` (4 faults, all on R1) | `…/infra-security/ts-acl-copp` |
 
   Older labs needed > 5 nodes and were tested in chunks; their solutions mark the few untestable end-to-end checks
-  **Expected**. The 5.2.a and 5.2.b labs are 5 nodes each, so they ran whole and every output is **Captured**.
+  **Expected**. The 5.2.a, 5.2.b and 5.2.a-b labs are 5 nodes each, so they ran whole and every output is **Captured**.
 - **Backlog:** `blueprint/encor-v1.2.md` and `blueprint/enarsi-v1.1.md` list every exam topic with plan and status.
 - **Tooling:**
   - CML MCP (cml-mcp with pyATS) runs on an Ubuntu VM over SSH, from the Claude desktop app.
@@ -41,7 +43,8 @@ The user understands CCNP concepts but has seen little of it running, so labs te
     Since 2026-11-04, `send_cli_command` with `config_command=true` runs the lines in exec mode and fails with
     `% Invalid input` on the first line.
   - Scripts: `tools/validate.py`, `tools/sync_notes.py`, `tools/import_lab.py`, and one builder per lab pair in
-    `tools/builders/`. The newest, `encor_5_2_a_acl.py` and `encor_5_2_b_copp.py`, are the cleanest pattern.
+    `tools/builders/`. The newest, `encor_5_2_a_acl.py` and `encor_5_2_b_copp.py`, are the cleanest pattern;
+    `encor_5_2_ab_acl_copp.py` imports the 5.2.b builder and only adds R1's extra layers (a model for combined pairs).
 
 ## User preferences (from feedback)
 - **Guide layout, scenario first:** Ticket / objectives → Done when → Rules → Intended design → Expected behavior,
@@ -57,7 +60,7 @@ The user understands CCNP concepts but has seen little of it running, so labs te
 ## Decisions awaiting the user's feedback
 - **Learn labs with preconfigured routing:** the 5.2.a and 5.2.b learn labs boot with addressing, OSPF and BGP
   already working (no ACLs / no CoPP), because the topic isn't routing. That bends CLAUDE.md's "learn labs boot
-  clean" rule. The user was told and hasn't objected. Keep doing it for 5.2.a-b unless they say otherwise.
+  clean" rule. The user was told and hasn't objected; the 5.2.a-b learn lab does the same.
 - **Topology changes vs the original plan:** the ACL labs use R1, R2, PC1, PC2 and SRV1 (an Alpine web/SSH server)
   instead of three routers, so there's a real host to protect. The user was told.
 
@@ -108,6 +111,10 @@ The user understands CCNP concepts but has seen little of it running, so labs te
   - CoPP: `drop` is rejected under a control-plane class (use `police … conform-action drop exceed-action drop`);
     ARP lands in class-default, so a dropping class-default kills ARP; a class policed at 32 kbps (bc 1500)
     hangs SSH but not Telnet.
+  - Layer order (verified building 5.2.a-b): interface ACL first, then CoPP. But with `ip unreachables` on (the
+    default), a packet the ACL denies is punted to build the unreachable and CoPP classifies *that*, so CoPP
+    counters move for denied traffic and a denied telnet just times out. Use `no ip unreachables` on the
+    internet interface for clean counters.
   - IOL-XE's HTTP server is on by default but answers port 80 with a reset; don't use HTTP to a router as a test.
   - Alpine: `ssh`, `telnet`, `nc`, `wget`, and `sshd` running; web server is `/usr/sbin/httpd -p 80 -h <dir>`.
     No curl, nmap or SNMP client.
@@ -123,37 +130,13 @@ The user understands CCNP concepts but has seen little of it running, so labs te
 ## Open items
 - Full runs of every lab on the 20-node server. As of 2026-11-04 the user hasn't run any yet; they'll give feedback
   on the Guide format once they do. No need to ask every session.
-- 3.2.c, 5.2.a and 5.2.b YAMLs: CML import check (`POST /api/v0/import` from the VM) and Lab Repository refresh
+- 3.2.c, 5.2.a, 5.2.b and 5.2.a-b YAMLs: CML import check (`POST /api/v0/import` from the VM) and Lab Repository refresh
   not yet run. Do it from the VM or ask the user.
 - `tools/cml_teardown_lab.py`: the user will add it. Restrict it to project-tagged labs and `.env`.
 - Unverified: whether `external_connector` counts against the license. Recheck now and then whether an ENARSI v1.2 blueprint exists.
 
 ## Very next step
-The user asked for this handoff right after 5.2.b and hasn't yet answered "build the combined 5.2.a-b pair next?".
-**Ask that first.** If yes, build it; if they name another topic, follow the workflow for that instead.
-
-**5.2.a-b combined pair** (part of the plan the user approved on 2026-11-02):
-
-| Learn | TS (faults) | Folder |
-|---|---|---|
-| `[LEARN] ENCOR 5.2.a-b ACLs and CoPP` | `[TSHOOT] ENCOR 5.2.a-b ACLs and CoPP` (4) | `labs/encor/5-security/infra-security/learn-acl-copp`, `ts-acl-copp` |
-
-- File names: `encor-5.2.ab-infra-security-learn-acl-copp.yaml`, `encor-5.2.ab-infra-security-ts-acl-copp.yaml`
-  (matching `encor-3.1.ab-…`). Builder: `tools/builders/encor_5_2_ab_acl_copp.py`.
-- **Topology:** the same as 5.2.b, 5 licensed nodes:
-  `PC1 (mgmt LAN 192.168.10.0/24) ── R2 ══OSPF══ R1 ══eBGP══ ISP1 ── PC2 (internet host)`. R1 is the protected edge.
-  Start from `encor_5_2_b_copp.py`: same addressing, routing (ISP1 passive, BGP timers 10/30) and COPP block.
-- **Learn:** an infrastructure ACL (iACL) inbound on R1's internet interface e0/1 (anti-spoofing, protect R1's own
-  addresses except BGP from the ISP peer, permit transit), CoPP behind it, and vty `access-class` as the third
-  layer. Show the order (interface ACL first, then CoPP), compare `show access-lists` hits with
-  `show policy-map control-plane` counters, and show traffic the iACL permits but CoPP drops. Don't re-teach ACL
-  or CoPP basics; point back to the 5.2.a and 5.2.b labs.
-- **TS (4 faults), as planned:**
-  1. The anti-spoofing `deny 10.0.0.0 0.255.255.255` also matches the ISP's BGP peer 10.1.101.101, so BGP is down.
-     Verify live: it's the one fault whose behavior is still unconfirmed.
-  2. The iACL has no transit permit, so PC1 can't reach the internet.
-  3. The iACL and `access-class` allow SSH, but CoPP's management class matches only Telnet.
-  4. `match-all` on the ICMP class, so pings to R1's loopback fail. **This repeats ts-copp's Fault 5.** Propose a
-     fresh ACL-and-CoPP interaction to the user instead, and keep this one only if they prefer it.
-- Afterwards: update the 5.2.a and 5.2.b blueprint rows (status "combined pair next" → done), the README index and
-  this file.
+The 2026-11-02 plan for ENCOR 5.2 (six labs: ACLs, CoPP, and the combined pair) is complete. The combined TS lab's
+Fault 4 was changed from the planned `match-all` repeat to a fresh fault (iACL permits only `echo` to R1, so R1's
+own ping and traceroute fail) at the user's choice.
+**Ask the user which topic to build next** (`blueprint/*.md` lists the backlog), then follow the workflow above.

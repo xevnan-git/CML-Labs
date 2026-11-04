@@ -96,6 +96,10 @@ dnsmasq, chrome, firefox, splunk, thousandeyes). Topics that need these are mark
   **outbound** interface ACL whose lines never match hits the implicit deny for the router's own packets too, ARP
   replies included (`0 packets output`), unlike most hardware platforms. IOL-XE has `ip http server` and
   `ip http secure-server` on by default, but port 80 answers with a TCP reset, so don't use HTTP to R* as a test.
+- **Interface ACL vs CoPP order (verified 2026-11-04):** the inbound interface ACL is checked first. With `ip
+  unreachables` on (default), an ACL-denied packet is punted to generate the ICMP unreachable and CoPP classifies
+  the punt (e.g. a denied telnet SYN lands in a dropping catch-all: no unreachable, and the ACL deny line didn't
+  count it). With `no ip unreachables` the ACL counts every deny and CoPP sees none of it.
 - **pyATS turns off console logging:** on connect, Unicon runs `no logging console` (plus `exec-timeout 0`) on IOL
   devices, logged as `%SYS-4-LOG_CONFIG_CHANGE` and `PnP Discovery stopped (Config Wizard)`. A node that pyATS never
   touched keeps console logging on (verified 2026-11-02), so labs need no fix. While testing, read `show logging`

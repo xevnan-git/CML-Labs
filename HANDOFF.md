@@ -131,12 +131,21 @@ The user understands CCNP concepts but has seen little of it running, so labs te
 ## Open items
 - Full runs of every lab on the 20-node server. As of 2026-11-04 the user hasn't run any yet; they'll give feedback
   on the Guide format once they do. No need to ask every session.
-- 3.2.c, 5.2.a, 5.2.b and 5.2.a-b YAMLs: CML import check (`POST /api/v0/import` from the VM) and Lab Repository refresh
+- 3.2.a, 3.2.c, 5.2.a, 5.2.b and 5.2.a-b YAMLs: CML import check (`POST /api/v0/import` from the VM) and Lab Repository refresh
   not yet run. Do it from the VM or ask the user.
 - `tools/cml_teardown_lab.py`: the user will add it. Restrict it to project-tagged labs and `.env`.
 - Unverified: whether `external_connector` counts against the license. Recheck now and then whether an ENARSI v1.2 blueprint exists.
 
 ## Very next step
+**Resume here:** the user approved going ahead with 3.2.d (the last session ended on "next pair?" only because
+usage ran low). Start building the 3.2.d PBR pair straight away: no need to re-show the plan below.
+- Model builder for a learn+ts pair: `tools/builders/encor_5_2_b_copp.py` (self-contained); for a learn-only lab:
+  `tools/builders/encor_3_2_a_eigrp_ospf.py`. Folder for PBR: `labs/encor/3-infrastructure/pbr/`, files
+  `encor-3.2.d-pbr-learn-<name>.yaml` / `encor-3.2.d-pbr-ts-<name>.yaml`. Update the ENCOR 3.2.d row and the ENARSI
+  1.6 row (shared).
+- Learn labs in this run boot with addresses (and any non-topic routing) preconfigured, like 3.2.a and 5.2.
+- Test hint: `wait_for_convergence=true` on start, then expect the first pyATS command to time out once.
+
 **Approved plan (2026-11-04): finish ENCOR 3.0, topics in blueprint order.** The user approved it as written; build
 each pair without re-asking and just confirm "next pair?" between them. Every topology is ≤ 5 licensed nodes.
 

@@ -11,9 +11,9 @@ Every exam topic gets two labs:
 
 The user understands CCNP concepts but has seen little of it running, so labs teach by doing. Labs are built **on demand**: the user names the next topic.
 
-## Current status (2026-11-04, ENCOR 3.0 run in progress: 3.2.a, 3.2.d, 3.3.a and 3.3.b done)
+## Current status (2026-11-04, ENCOR 3.0 run in progress: 3.2.a, 3.2.d, 3.3.a, 3.3.b and 3.3.c done)
 - **Repo:** https://github.com/xevnan-git/CML-Labs, branch `main`, everything committed and pushed. Local checkout:
-  `C:\Claude\CML-Labs`. `validate.py`: 22/22 labs pass.
+  `C:\Claude\CML-Labs`. `validate.py`: 24/24 labs pass.
 - **Built (all dev-tested on the 5-node server; none yet run on the 20-node server):**
 
   | Blueprint | Lab | Folder |
@@ -40,9 +40,11 @@ The user understands CCNP concepts but has seen little of it running, so labs te
   | ENCOR 3.3.a | `[TSHOOT] ENCOR 3.3.a NTP` (5 faults: 2 on R1, 1 on R2, 2 on R3) | `…/ntp/ts-ntp` |
   | ENCOR 3.3.b | `[LEARN] ENCOR 3.3.b NAT and PAT` | `labs/encor/3-infrastructure/nat/learn-nat` |
   | ENCOR 3.3.b | `[TSHOOT] ENCOR 3.3.b NAT and PAT` (5 faults, all on R1, 1–4 layered) | `…/nat/ts-nat` |
+  | ENCOR 3.3.c | `[LEARN] ENCOR 3.3.c FHRP (HSRP and VRRP)` (also 1.1.b) | `labs/encor/3-infrastructure/fhrp/learn-fhrp` |
+  | ENCOR 3.3.c | `[TSHOOT] ENCOR 3.3.c FHRP (HSRP and VRRP)` (5 faults: 2 on R1, 3 on R2; 3–5 need the failover test) | `…/fhrp/ts-fhrp` |
 
   Older labs needed > 5 nodes and were tested in chunks; their solutions mark the few untestable end-to-end checks
-  **Expected**. The 3.2.a, 3.2.d, 3.3.a, 3.3.b, 5.2.a, 5.2.b and 5.2.a-b labs are ≤ 5 nodes each, so they ran whole and every output is **Captured**.
+  **Expected**. The 3.2.a, 3.2.d, 3.3.a, 3.3.b, 3.3.c, 5.2.a, 5.2.b and 5.2.a-b labs are ≤ 5 nodes each, so they ran whole and every output is **Captured**.
 - **Backlog:** `blueprint/encor-v1.2.md` and `blueprint/enarsi-v1.1.md` list every exam topic with plan and status.
 - **Tooling:**
   - CML MCP (cml-mcp with pyATS) runs on an Ubuntu VM over SSH, from the Claude desktop app.
@@ -151,6 +153,12 @@ The user understands CCNP concepts but has seen little of it running, so labs te
   (SRV1's heartbeat) re-creates entries between tool calls, so send `do clear ip nat translation *` and the change
   in the **same** `send_cli_config_command`. An inbound outside ACL is checked before NAT (match the global
   address). `clear logging` prints a harmless `Failed to set Clear Logging Chasfs Property`.
+- **FHRP traps (found building 3.3.c):** with passive LAN interfaces, a gateway failover is instant but the
+  *return* path waits for the upstream router's OSPF dead timer (~30–40 s) when the gateway shuts its own uplink;
+  a CML link stop leaves IOL interfaces up/up (both HSRP routers Active, replies black-holed). A `shutdown` on
+  the Active's LAN port is a graceful resign (0 pings lost). `track N` can't change type in place (`no track N`
+  first; FHRP `track N decrement` lines survive). Busybox `ping > file &` output is block-buffered: read the file
+  after the run ends. Unmanaged switches need no annotation.
 - **pyATS on Alpine:** run `traceroute -n -q 1 -w 1` (and `ping -W 1`); default timeouts can exceed the tool call's.
 - **Unverified claims:** test every fault's symptom live before writing it up. If a fault behaves
   non-deterministically (e.g. LACP picking a link by race), replace it. Don't state packet-level causes you
@@ -159,18 +167,18 @@ The user understands CCNP concepts but has seen little of it running, so labs te
 ## Open items
 - Full runs of every lab on the 20-node server. As of 2026-11-04 the user hasn't run any yet; they'll give feedback
   on the Guide format once they do. No need to ask every session.
-- 3.2.a, 3.2.c, 3.2.d, 3.3.a, 3.3.b, 5.2.a, 5.2.b and 5.2.a-b YAMLs: CML import check (`POST /api/v0/import` from the VM) and Lab Repository refresh
+- 3.2.a, 3.2.c, 3.2.d, 3.3.a, 3.3.b, 3.3.c, 5.2.a, 5.2.b and 5.2.a-b YAMLs: CML import check (`POST /api/v0/import` from the VM) and Lab Repository refresh
   not yet run. Do it from the VM or ask the user.
 - `tools/cml_teardown_lab.py`: the user will add it. Restrict it to project-tagged labs and `.env`.
 - Unverified: whether `external_connector` counts against the license. Recheck now and then whether an ENARSI v1.2 blueprint exists.
 
 ## Very next step
-**Resume here:** 3.2.a, 3.2.d, 3.3.a and 3.3.b are done; next is the 3.3.c FHRP pair. The plan below is approved,
-so don't re-show it: confirm "build 3.3.c next?" in one line and then build it.
+**Resume here:** 3.2.a, 3.2.d, 3.3.a, 3.3.b and 3.3.c are done; next is the 3.3.d Multicast pair. The plan below is approved,
+so don't re-show it: confirm "build 3.3.d next?" in one line and then build it.
 - Model builder for a learn+ts pair: `tools/builders/encor_3_2_d_pbr.py` (hosts + routers) or
-  `encor_3_3_a_ntp.py` (routers only, faults on several routers) or `encor_3_3_b_nat.py` (hosts with services); for a learn-only lab:
-  `tools/builders/encor_3_2_a_eigrp_ospf.py`. Folder for FHRP: `labs/encor/3-infrastructure/fhrp/`, files
-  `encor-3.3.c-fhrp-learn-<name>.yaml` / `encor-3.3.c-fhrp-ts-<name>.yaml`.
+  `encor_3_3_a_ntp.py` (routers only, faults on several routers) or `encor_3_3_b_nat.py` (hosts with services) or `encor_3_3_c_fhrp.py` (unmanaged-switch LANs); for a learn-only lab:
+  `tools/builders/encor_3_2_a_eigrp_ospf.py`. Folder for multicast: `labs/encor/3-infrastructure/multicast/`, files
+  `encor-3.3.d-multicast-learn-<name>.yaml` / `encor-3.3.d-multicast-ts-<name>.yaml`.
 - Learn labs in this run boot with addresses (and any non-topic routing) preconfigured, like 3.2.a and 5.2.
 - Test hint: `wait_for_convergence=true` on start, then expect the first pyATS command to time out once.
 
@@ -183,8 +191,8 @@ each pair without re-asking and just confirm "next pair?" between them. Every to
 | 2 | 3.2.d PBR (shared with ENARSI 1.6) | learn + ts (5 faults) | **done** |
 | 3 | 3.3.a NTP (PTP concept-only) | learn + ts (5) | **done** |
 | 4 | 3.3.b NAT/PAT | learn + ts (5) | **done** |
-| 5 | 3.3.c HSRP + VRRP (also 1.1.b) | learn + ts (5) | **next** |
-| 6 | 3.3.d Multicast | learn + ts (5) | |
+| 5 | 3.3.c HSRP + VRRP (also 1.1.b) | learn + ts (5) | **done** |
+| 6 | 3.3.d Multicast | learn + ts (5) | **next** |
 
 Details as approved:
 - **3.2.d PBR:** PC1 (staff LAN) and PC2 (guest LAN) on R1, dual-homed to ISP1 and ISP2; both ISPs carry the same

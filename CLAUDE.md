@@ -116,6 +116,10 @@ dnsmasq, chrome, firefox, splunk, thousandeyes). Topics that need these are mark
   cannot change`); removing a static with child entries prompts `[no]:` (hangs pyATS). With live traffic, send
   `do clear ip nat translation *` and the change in one `send_cli_config_command`. An inbound ACL on the outside
   interface is checked before NAT, so it must match the inside global address.
+- **FHRP on IOL-XE 17.18 (verified 2026-11-05):** HSRPv2 and VRRPv3 (`fhrp version vrrp v3`) both work. A CML
+  link stop leaves IOL interfaces up/up (no carrier loss), so it's a silent failure, not a port-down. Changing a
+  `track` object's type needs `no track N` first. The return path after a gateway failover follows OSPF (dead
+  timer), not the FHRP.
 - **Annotation `border_style` differs by path:** CML's own file format (the import API and the Lab Repository indexer)
   only accepts `''` (solid), `'2,2'` (dotted) or `'4,2'` (dashed). The MCP `create_full_lab_topology` tool
   wants `solid`/`dotted`/`dashed` instead. Committed `.yaml` files must use CML's form, which `validate.py` checks. A

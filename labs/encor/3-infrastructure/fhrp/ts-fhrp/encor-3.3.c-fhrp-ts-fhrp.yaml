@@ -1,0 +1,599 @@
+lab:
+  title: '[TSHOOT] ENCOR 3.3.c FHRP (HSRP and VRRP)'
+  description: 'Troubleshooting: the gateway failover test failed, one LAN has no gateway and the logs complain about HSRP.'
+  notes: |
+    # FHRP (HSRP and VRRP) — Troubleshooting Lab
+
+    > **Blueprint:** ENCOR 3.3.c — Configure first hop redundancy protocols, such as HSRP, VRRP
+    > (also ENCOR 1.1.b — high availability techniques such as redundancy, FHRP)
+    > **Mode:** Troubleshooting · **Nodes:** 5 licensed (3 routers, 2 hosts) + 2 unmanaged switches · **Faults:** 5 · **Difficulty:** 2 of 3
+
+    <!--
+    This README is copied verbatim into the lab's CML Notes. It must NOT reveal the faults: no hints, no root cause.
+    Hints and the solution live only in solution/README.md in the repo.
+    Order: scenario first (ticket, goal, design), reference material (access, topology, addressing) at the bottom.
+    -->
+
+    ## Ticket
+
+    > **#6431 — Gateway redundancy failed its test**
+    > "We finished the redundant-gateway project for LAN10 and LAN20 on Friday. Since then LAN20 (PC2) can't reach
+    > the data-center server at all, and both routers keep logging HSRP warnings for LAN10. LAN10 itself works. Last
+    > night's failover test also failed: with R1's uplink shut down, PC1 lost the server too. Please fix it, then run
+    > the failover tests below and make sure both pass."
+
+    ## Done when
+    1. **PC1** and **PC2** reach the server: `ping -c 2 -W 1 172.16.0.100`.
+    2. `show standby brief` on R1 shows group 10 **Active** with R2 as **Standby**; `show vrrp brief` on R2 shows
+       group 20 **MASTER** with R1 as backup. No HSRP or VRRP warnings keep appearing in `show logging`.
+    3. `traceroute -n -q 1 -w 1 172.16.0.100`: hop 1 is **192.168.10.2** (R1) from PC1 and **192.168.20.3** (R2)
+       from PC2.
+    4. **Failover test, LAN10:** on R1, `shutdown` Ethernet0/2. R2 becomes Active for group 10, and PC1 reaches the
+       server again within a minute (OSPF needs up to 40 seconds to notice the dead link). After `no shutdown` and
+       about a minute, R1 is Active again.
+    5. **Failover test, LAN20:** the same with R2's Ethernet0/2: R1 becomes Master for group 20, PC2 keeps reaching
+       the server, and R2 takes back over after `no shutdown`.
+
+    ## Rules
+    - **Change only R1 and R2.** R3 and the PCs are configured correctly; you may run `show` and test commands on them.
+    - Shutting down and re-enabling the uplinks (Ethernet0/2 on R1 or R2) for the failover tests is expected.
+    - Keep the design below: same groups, protocols, addresses, priorities, key and tracked route.
+    - There's more than one fault, and fixing one may reveal the next.
+    - Hints and the full solution are in the lab repository (`solution/README.md` in this lab's folder), not in CML.
+
+    ## Intended design
+    **Routing (working, unchanged):** OSPF area 0 on every interface of R1, R2 and R3; the LAN interfaces on R1 and
+    R2 are passive, so a gateway reaches R3 only through its own uplink.
+
+    **Tracking (R1 and R2):** `track 1` follows the route to R3's Loopback0, **10.255.255.3/32**, in the routing table.
+    It goes down when that router loses its uplink.
+
+    **LAN10, HSRP version 2, group 10, virtual IP 192.168.10.1:**
+    - Hello 1 s, hold 3 s on both routers.
+    - MD5 authentication, key string `FHRPsecret`, on both routers.
+    - R1: priority 110, preempt, track 1 decrement 20 → **R1 Active**.
+    - R2: priority 100 (default), preempt → Standby, and takes over whenever R1's priority drops below 100.
+
+    **LAN20, VRRP version 3 (`fhrp version vrrp v3`), group 20, virtual IP 192.168.20.1:**
+    - R2: priority 110, track 1 decrement 20 → **R2 Master**.
+    - R1: priority 100 (default). VRRP preempt is on by default on both.
+
+    **Load sharing:** LAN10 leaves through R1, LAN20 through R2; each router backs up the other.
+
+    ## Expected behavior
+    - Both PCs reach 172.16.0.100 through their primary gateway.
+    - If a primary gateway loses its uplink, the other router takes over that LAN; when the uplink returns, the
+      primary takes back over.
+
+    ---
+
+    # Reference
+
+    ## Lab access
+
+    | Node | Type | Username | Password | Enable |
+    |---|---|---|---|---|
+    | R1, R2 | IOL-XE routers (the gateways) | cisco | cisco | cisco |
+    | R3 | IOL-XE router (upstream / server; look, don't change) | cisco | cisco | cisco |
+    | PC1, PC2 | Alpine Linux | cisco | cisco | `sudo -i` |
+    | SW1, SW2 | CML unmanaged switches (no login) | — | — | — |
+
+    Open a console from the node in CML (right-click → Console). Routers start in privileged EXEC.
+    Each node also has a label in the CML canvas with its login and addresses.
+
+    Useful PC commands: `ping -c 2 -W 1 <ip>`, `traceroute -n -q 1 -w 1 <ip>` (hop 1 is the real address of the
+    router forwarding for the LAN), `ip neigh` (the gateway's MAC address).
+
+    ## Topology
+
+    ```
+                              R3   Lo0 10.255.255.3
+                                   Lo1 172.16.0.100 ("data-center server")
+                        e0/0 /        \ e0/1
+                 10.1.3.0/24/          \10.2.3.0/24
+                      e0/2 /            \ e0/2
+                         R1              R2
+             Lo0 10.255.255.1          Lo0 10.255.255.2
+
+       LAN10 192.168.10.0/24                LAN20 192.168.20.0/24
+       R1 e0/0 .2 --+                       R1 e0/1 .2 --+
+                    [SW1]-- PC1 .10                      [SW2]-- PC2 .10
+       R2 e0/0 .3 --+                       R2 e0/1 .3 --+
+       VIP .1 (HSRPv2 group 10)             VIP .1 (VRRPv3 group 20)
+    ```
+
+    ## Addressing (as designed)
+
+    | Node | Interface | IPv4 | Connects to |
+    |---|---|---|---|
+    | R1 | Loopback0 | 10.255.255.1/32 | — |
+    | R1 | Ethernet0/0 | 192.168.10.2/24 | SW1 (LAN10) |
+    | R1 | Ethernet0/1 | 192.168.20.2/24 | SW2 (LAN20) |
+    | R1 | Ethernet0/2 | 10.1.3.1/24 | R3 e0/0 |
+    | R2 | Loopback0 | 10.255.255.2/32 | — |
+    | R2 | Ethernet0/0 | 192.168.10.3/24 | SW1 (LAN10) |
+    | R2 | Ethernet0/1 | 192.168.20.3/24 | SW2 (LAN20) |
+    | R2 | Ethernet0/2 | 10.2.3.2/24 | R3 e0/1 |
+    | R3 | Loopback0 | 10.255.255.3/32 | — |
+    | R3 | Loopback1 | 172.16.0.100/32 | data-center server |
+    | R3 | Ethernet0/0 | 10.1.3.3/24 | R1 e0/2 |
+    | R3 | Ethernet0/1 | 10.2.3.3/24 | R2 e0/2 |
+    | PC1 | eth0 | 192.168.10.10/24, gw .1 | SW1 |
+    | PC2 | eth0 | 192.168.20.10/24, gw .1 | SW2 |
+  version: 0.3.0
+nodes:
+- id: n0
+  label: R1
+  x: -250
+  y: -50
+  node_definition: iol-xe
+  image_definition: iol-xe-17-18-02
+  interfaces:
+  - id: i0
+    label: Loopback0
+    type: loopback
+  - id: i1
+    label: Ethernet0/0
+    type: physical
+    slot: 0
+  - id: i2
+    label: Ethernet0/1
+    type: physical
+    slot: 1
+  - id: i3
+    label: Ethernet0/2
+    type: physical
+    slot: 2
+  - id: i4
+    label: Ethernet0/3
+    type: physical
+    slot: 3
+  configuration:
+  - name: ios_config.txt
+    content: |
+      hostname R1
+      no ip domain lookup
+      ip domain name lab.local
+      enable secret cisco
+      username cisco privilege 15 secret cisco
+      !
+      fhrp version vrrp v3
+      track 1 ip route 10.255.255.3 255.255.255.255 reachability
+      !
+      interface Loopback0
+       ip address 10.255.255.1 255.255.255.255
+       ip ospf 1 area 0
+      !
+      interface Ethernet0/0
+       description LAN10 staff (PC1) via SW1
+       ip address 192.168.10.2 255.255.255.0
+       ip ospf 1 area 0
+       standby version 2
+       standby 10 ip 192.168.10.1
+       standby 10 timers 1 3
+       standby 10 priority 110
+       standby 10 preempt
+       standby 10 authentication md5 key-string FHRPSecret
+       standby 10 track 1 decrement 5
+       no shutdown
+      !
+      interface Ethernet0/1
+       description LAN20 lab (PC2) via SW2
+       ip address 192.168.20.2 255.255.255.0
+       ip ospf 1 area 0
+       vrrp 20 address-family ipv4
+        address 192.168.20.1 primary
+        exit-vrrp
+       no shutdown
+      !
+      interface Ethernet0/2
+       description uplink R3 e0/0
+       ip address 10.1.3.1 255.255.255.0
+       ip ospf 1 area 0
+       no shutdown
+      !
+      interface Ethernet0/3
+       no ip address
+       shutdown
+      !
+      router ospf 1
+       router-id 10.255.255.1
+       passive-interface Ethernet0/0
+       passive-interface Ethernet0/1
+      !
+      line con 0
+       exec-timeout 0 0
+       logging synchronous
+       privilege level 15
+      line vty 0 4
+       login local
+       transport input telnet ssh
+      !
+      end
+- id: n1
+  label: R2
+  x: 250
+  y: -50
+  node_definition: iol-xe
+  image_definition: iol-xe-17-18-02
+  interfaces:
+  - id: i0
+    label: Loopback0
+    type: loopback
+  - id: i1
+    label: Ethernet0/0
+    type: physical
+    slot: 0
+  - id: i2
+    label: Ethernet0/1
+    type: physical
+    slot: 1
+  - id: i3
+    label: Ethernet0/2
+    type: physical
+    slot: 2
+  - id: i4
+    label: Ethernet0/3
+    type: physical
+    slot: 3
+  configuration:
+  - name: ios_config.txt
+    content: |
+      hostname R2
+      no ip domain lookup
+      ip domain name lab.local
+      enable secret cisco
+      username cisco privilege 15 secret cisco
+      !
+      fhrp version vrrp v3
+      track 1 interface Ethernet0/0 line-protocol
+      !
+      interface Loopback0
+       ip address 10.255.255.2 255.255.255.255
+       ip ospf 1 area 0
+      !
+      interface Ethernet0/0
+       description LAN10 staff (PC1) via SW1
+       ip address 192.168.10.3 255.255.255.0
+       ip ospf 1 area 0
+       standby version 2
+       standby 10 ip 192.168.10.1
+       standby 10 timers 1 3
+       standby 10 authentication md5 key-string FHRPsecret
+       no shutdown
+      !
+      interface Ethernet0/1
+       description LAN20 lab (PC2) via SW2
+       ip address 192.168.20.3 255.255.255.0
+       ip ospf 1 area 0
+       vrrp 20 address-family ipv4
+        priority 110
+        track 1 decrement 20
+        address 192.168.20.254 primary
+        exit-vrrp
+       no shutdown
+      !
+      interface Ethernet0/2
+       description uplink R3 e0/1
+       ip address 10.2.3.2 255.255.255.0
+       ip ospf 1 area 0
+       no shutdown
+      !
+      interface Ethernet0/3
+       no ip address
+       shutdown
+      !
+      router ospf 1
+       router-id 10.255.255.2
+       passive-interface Ethernet0/0
+       passive-interface Ethernet0/1
+      !
+      line con 0
+       exec-timeout 0 0
+       logging synchronous
+       privilege level 15
+      line vty 0 4
+       login local
+       transport input telnet ssh
+      !
+      end
+- id: n2
+  label: R3
+  x: 0
+  y: -250
+  node_definition: iol-xe
+  image_definition: iol-xe-17-18-02
+  interfaces:
+  - id: i0
+    label: Loopback0
+    type: loopback
+  - id: i1
+    label: Ethernet0/0
+    type: physical
+    slot: 0
+  - id: i2
+    label: Ethernet0/1
+    type: physical
+    slot: 1
+  - id: i3
+    label: Ethernet0/2
+    type: physical
+    slot: 2
+  - id: i4
+    label: Ethernet0/3
+    type: physical
+    slot: 3
+  configuration:
+  - name: ios_config.txt
+    content: |
+      hostname R3
+      no ip domain lookup
+      ip domain name lab.local
+      enable secret cisco
+      username cisco privilege 15 secret cisco
+      !
+      interface Loopback0
+       ip address 10.255.255.3 255.255.255.255
+       ip ospf 1 area 0
+      !
+      interface Loopback1
+       description data-center server
+       ip address 172.16.0.100 255.255.255.255
+       ip ospf 1 area 0
+      !
+      interface Ethernet0/0
+       description R1 e0/2
+       ip address 10.1.3.3 255.255.255.0
+       ip ospf 1 area 0
+       no shutdown
+      !
+      interface Ethernet0/1
+       description R2 e0/2
+       ip address 10.2.3.3 255.255.255.0
+       ip ospf 1 area 0
+       no shutdown
+      !
+      interface Ethernet0/2
+       no ip address
+       shutdown
+      !
+      interface Ethernet0/3
+       no ip address
+       shutdown
+      !
+      router ospf 1
+       router-id 10.255.255.3
+      !
+      line con 0
+       exec-timeout 0 0
+       logging synchronous
+       privilege level 15
+      line vty 0 4
+       login local
+       transport input telnet ssh
+      !
+      end
+- id: n3
+  label: SW1
+  x: -150
+  y: 150
+  node_definition: unmanaged_switch
+  interfaces:
+  - id: i0
+    label: port0
+    slot: 0
+    type: physical
+  - id: i1
+    label: port1
+    slot: 1
+    type: physical
+  - id: i2
+    label: port2
+    slot: 2
+    type: physical
+  - id: i3
+    label: port3
+    slot: 3
+    type: physical
+- id: n4
+  label: SW2
+  x: 150
+  y: 150
+  node_definition: unmanaged_switch
+  interfaces:
+  - id: i0
+    label: port0
+    slot: 0
+    type: physical
+  - id: i1
+    label: port1
+    slot: 1
+    type: physical
+  - id: i2
+    label: port2
+    slot: 2
+    type: physical
+  - id: i3
+    label: port3
+    slot: 3
+    type: physical
+- id: n5
+  label: PC1
+  x: -150
+  y: 330
+  node_definition: alpine
+  image_definition: alpine-base-3-23-3
+  interfaces:
+  - id: i0
+    label: eth0
+    slot: 0
+    type: physical
+  configuration:
+  - name: node.cfg
+    content: |
+      # this is a shell script which will be sourced at boot
+      hostname PC1
+      USERNAME=cisco
+      PASSWORD=cisco
+      ip address add 192.168.10.10/24 dev eth0
+      ip link set dev eth0 up
+      ip route add default via 192.168.10.1
+- id: n6
+  label: PC2
+  x: 150
+  y: 330
+  node_definition: alpine
+  image_definition: alpine-base-3-23-3
+  interfaces:
+  - id: i0
+    label: eth0
+    slot: 0
+    type: physical
+  configuration:
+  - name: node.cfg
+    content: |
+      # this is a shell script which will be sourced at boot
+      hostname PC2
+      USERNAME=cisco
+      PASSWORD=cisco
+      ip address add 192.168.20.10/24 dev eth0
+      ip link set dev eth0 up
+      ip route add default via 192.168.20.1
+links:
+- id: l0
+  n1: n0
+  i1: i1
+  n2: n3
+  i2: i0
+- id: l1
+  n1: n1
+  i1: i1
+  n2: n3
+  i2: i1
+- id: l2
+  n1: n5
+  i1: i0
+  n2: n3
+  i2: i2
+- id: l3
+  n1: n0
+  i1: i2
+  n2: n4
+  i2: i0
+- id: l4
+  n1: n1
+  i1: i2
+  n2: n4
+  i2: i1
+- id: l5
+  n1: n6
+  i1: i0
+  n2: n4
+  i2: i2
+- id: l6
+  n1: n0
+  i1: i3
+  n2: n2
+  i2: i1
+- id: l7
+  n1: n1
+  i1: i3
+  n2: n2
+  i2: i2
+annotations:
+- type: text
+  text_content: |-
+    R1  gateway  cisco/cisco
+    Lo0   10.255.255.1/32
+    e0/0  192.168.10.2/24 (LAN10)
+    e0/1  192.168.20.2/24 (LAN20)
+    e0/2  10.1.3.1/24     (R3)
+  x1: -320
+  y1: -10
+  rotation: 0
+  text_bold: false
+  text_italic: false
+  text_size: 10
+  text_unit: pt
+  text_font: monospace
+  color: '#5A5A5AFF'
+  border_color: '#00000000'
+  border_style: ''
+  thickness: 1
+  z_index: 1
+- type: text
+  text_content: |-
+    R2  gateway  cisco/cisco
+    Lo0   10.255.255.2/32
+    e0/0  192.168.10.3/24 (LAN10)
+    e0/1  192.168.20.3/24 (LAN20)
+    e0/2  10.2.3.2/24     (R3)
+  x1: 180
+  y1: -10
+  rotation: 0
+  text_bold: false
+  text_italic: false
+  text_size: 10
+  text_unit: pt
+  text_font: monospace
+  color: '#5A5A5AFF'
+  border_color: '#00000000'
+  border_style: ''
+  thickness: 1
+  z_index: 1
+- type: text
+  text_content: |-
+    R3  upstream  cisco/cisco
+    Lo0   10.255.255.3/32
+    Lo1   172.16.0.100/32 (server)
+    e0/0  10.1.3.3/24 (R1)
+    e0/1  10.2.3.3/24 (R2)
+  x1: -70
+  y1: -210
+  rotation: 0
+  text_bold: false
+  text_italic: false
+  text_size: 10
+  text_unit: pt
+  text_font: monospace
+  color: '#5A5A5AFF'
+  border_color: '#00000000'
+  border_style: ''
+  thickness: 1
+  z_index: 1
+- type: text
+  text_content: |-
+    PC1  LAN10  cisco/cisco
+    eth0 192.168.10.10/24
+    gw   192.168.10.1 (virtual)
+  x1: -220
+  y1: 370
+  rotation: 0
+  text_bold: false
+  text_italic: false
+  text_size: 10
+  text_unit: pt
+  text_font: monospace
+  color: '#5A5A5AFF'
+  border_color: '#00000000'
+  border_style: ''
+  thickness: 1
+  z_index: 1
+- type: text
+  text_content: |-
+    PC2  LAN20  cisco/cisco
+    eth0 192.168.20.10/24
+    gw   192.168.20.1 (virtual)
+  x1: 80
+  y1: 370
+  rotation: 0
+  text_bold: false
+  text_italic: false
+  text_size: 10
+  text_unit: pt
+  text_font: monospace
+  color: '#5A5A5AFF'
+  border_color: '#00000000'
+  border_style: ''
+  thickness: 1
+  z_index: 1

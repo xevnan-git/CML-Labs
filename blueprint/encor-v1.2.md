@@ -8,7 +8,7 @@ Legend: see [README](README.md).
 | ID | Topic | Plan | Status | Lab(s) | Notes |
 |---|---|---|---|---|---|
 | 1.1.a | Enterprise design: 2-tier, 3-tier, fabric, cloud | concept | backlog | | |
-| 1.1.b | High availability: redundancy, FHRP, SSO | → 3.3.c | backlog | | SSO is concept-only (no dual-RP platform) |
+| 1.1.b | High availability: redundancy, FHRP, SSO | → 3.3.c | done via 3.3.c (FHRP) | [learn-fhrp](../labs/encor/3-infrastructure/fhrp/learn-fhrp/), [ts-fhrp](../labs/encor/3-infrastructure/fhrp/ts-fhrp/) | SSO is concept-only (no dual-RP platform) |
 | 1.2.a | Catalyst SD-WAN control and data plane elements | N/A here | — | | No SD-WAN images |
 | 1.2.b | Catalyst SD-WAN benefits and limitations | concept | backlog | | |
 | 1.3.a | SD-Access control and data plane elements | concept | backlog | | LISP/VXLAN pieces via 2.3 |
@@ -38,7 +38,7 @@ Legend: see [README](README.md).
 | 3.2.d | Policy-based routing | learn + ts (shared with ENARSI 1.6) | done (dev-tested) | [learn-pbr](../labs/encor/3-infrastructure/pbr/learn-pbr/), [ts-pbr](../labs/encor/3-infrastructure/pbr/ts-pbr/) | 5 nodes, tested whole; dual ISP, guests via ISP2 with IP SLA tracking, `ip local policy` |
 | 3.3.a | NTP and PTP configurations | learn + ts | done (dev-tested) | [learn-ntp](../labs/encor/3-infrastructure/ntp/learn-ntp/), [ts-ntp](../labs/encor/3-infrastructure/ntp/ts-ntp/) | 4 nodes, tested whole; master → client/server → peers, MD5, access-groups. PTP concept-only (no PTP image). Full sync ~45–50 min |
 | 3.3.b | NAT/PAT | learn + ts | done (dev-tested) | [learn-nat](../labs/encor/3-infrastructure/nat/learn-nat/), [ts-nat](../labs/encor/3-infrastructure/nat/ts-nat/) | 5 nodes, tested whole; static NAT, port forwarding, dynamic pool, PAT, outside ACL vs NAT order. TS: 5 faults on R1 |
-| 3.3.c | FHRP: HSRP, VRRP | learn + ts | backlog | | Also covers 1.1.b |
+| 3.3.c | FHRP: HSRP, VRRP | learn + ts | done (dev-tested) | [learn-fhrp](../labs/encor/3-infrastructure/fhrp/learn-fhrp/), [ts-fhrp](../labs/encor/3-infrastructure/fhrp/ts-fhrp/) | 5 nodes + 2 unmanaged switches, tested whole; HSRPv2 (priority, preempt, timers, MD5, tracking) on LAN10, VRRPv3 on LAN20, failover with live pings. Also covers 1.1.b |
 | 3.3.d | Multicast: RPF, PIM-SM, IGMPv2/v3, SSM, bidir, MSDP | learn | backlog | | verify bidir/MSDP on IOL-XE |
 
 ## 4.0 Network Assurance (10%) — `labs/encor/4-network-assurance/`

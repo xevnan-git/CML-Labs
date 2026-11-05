@@ -39,7 +39,7 @@ Legend: see [README](README.md).
 | 3.3.a | NTP and PTP configurations | learn + ts | done (dev-tested) | [learn-ntp](../labs/encor/3-infrastructure/ntp/learn-ntp/), [ts-ntp](../labs/encor/3-infrastructure/ntp/ts-ntp/) | 4 nodes, tested whole; master → client/server → peers, MD5, access-groups. PTP concept-only (no PTP image). Full sync ~45–50 min |
 | 3.3.b | NAT/PAT | learn + ts | done (dev-tested) | [learn-nat](../labs/encor/3-infrastructure/nat/learn-nat/), [ts-nat](../labs/encor/3-infrastructure/nat/ts-nat/) | 5 nodes, tested whole; static NAT, port forwarding, dynamic pool, PAT, outside ACL vs NAT order. TS: 5 faults on R1 |
 | 3.3.c | FHRP: HSRP, VRRP | learn + ts | done (dev-tested) | [learn-fhrp](../labs/encor/3-infrastructure/fhrp/learn-fhrp/), [ts-fhrp](../labs/encor/3-infrastructure/fhrp/ts-fhrp/) | 5 nodes + 2 unmanaged switches, tested whole; HSRPv2 (priority, preempt, timers, MD5, tracking) on LAN10, VRRPv3 on LAN20, failover with live pings. Also covers 1.1.b |
-| 3.3.d | Multicast: RPF, PIM-SM, IGMPv2/v3, SSM, bidir, MSDP | learn | backlog | | verify bidir/MSDP on IOL-XE |
+| 3.3.d | Multicast: RPF, PIM-SM, IGMPv2/v3, SSM, bidir, MSDP | learn + ts | done (dev-tested) | [learn-multicast](../labs/encor/3-infrastructure/multicast/learn-multicast/), [ts-multicast](../labs/encor/3-infrastructure/multicast/ts-multicast/) | 5 nodes (IOL hosts as source/receiver), tested whole; PIM-SM static RP, RPT→SPT, RPF + static mroute, IGMPv3/SSM, bidir and MSDP all hands-on (all work on IOL-XE) |
 
 ## 4.0 Network Assurance (10%) — `labs/encor/4-network-assurance/`
 

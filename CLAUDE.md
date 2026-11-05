@@ -120,6 +120,10 @@ dnsmasq, chrome, firefox, splunk, thousandeyes). Topics that need these are mark
   link stop leaves IOL interfaces up/up (no carrier loss), so it's a silent failure, not a port-down. Changing a
   `track` object's type needs `no track N` first. The return path after a gateway failover follows OSPF (dead
   timer), not the FHRP.
+- **Multicast on IOL-XE 17.18 (verified 2026-11-05):** `ip multicast-routing` (no `distributed`), PIM-SM, SSM,
+  bidir and MSDP all work. Use IOL nodes as source/receiver (`ping <group>`, `ip igmp join-group`); Alpine ignores
+  multicast echo. The RPF lookup skips non-PIM interfaces. `clear ip mroute *` drops IGMP-learned (*,G) until the
+  next report (~1 min). A v3 host behind a v2 querier falls back to v2 and needs ~90 s to recover.
 - **Annotation `border_style` differs by path:** CML's own file format (the import API and the Lab Repository indexer)
   only accepts `''` (solid), `'2,2'` (dotted) or `'4,2'` (dashed). The MCP `create_full_lab_topology` tool
   wants `solid`/`dotted`/`dashed` instead. Committed `.yaml` files must use CML's form, which `validate.py` checks. A

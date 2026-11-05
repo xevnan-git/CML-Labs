@@ -112,6 +112,10 @@ dnsmasq, chrome, firefox, splunk, thousandeyes). Topics that need these are mark
   measurement before "synchronized" (master included), so 3 levels ≈ 45–50 min; `reach`/packet counters move
   within a poll. `debug ntp packet` (not `packets`). A lone `ntp access-group serve-only` also blocks the router's
   own server replies; add a `peer` group.
+- **NAT on IOL-XE 17.18 (verified 2026-11-04):** changing a dynamic mapping in use fails (`%Dynamic mapping in use,
+  cannot change`); removing a static with child entries prompts `[no]:` (hangs pyATS). With live traffic, send
+  `do clear ip nat translation *` and the change in one `send_cli_config_command`. An inbound ACL on the outside
+  interface is checked before NAT, so it must match the inside global address.
 - **Annotation `border_style` differs by path:** CML's own file format (the import API and the Lab Repository indexer)
   only accepts `''` (solid), `'2,2'` (dotted) or `'4,2'` (dashed). The MCP `create_full_lab_topology` tool
   wants `solid`/`dotted`/`dashed` instead. Committed `.yaml` files must use CML's form, which `validate.py` checks. A

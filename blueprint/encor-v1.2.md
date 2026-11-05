@@ -37,7 +37,7 @@ Legend: see [README](README.md).
 | 3.2.c | eBGP between directly connected neighbors, best path, neighbor states | learn + ts | done (dev-tested) | [learn-ebgp](../labs/encor/3-infrastructure/bgp/learn-ebgp/), [ts-ebgp](../labs/encor/3-infrastructure/bgp/ts-ebgp/) | 6 nodes; PC1↔PC2 end-to-end needs the 20-node server |
 | 3.2.d | Policy-based routing | learn + ts (shared with ENARSI 1.6) | done (dev-tested) | [learn-pbr](../labs/encor/3-infrastructure/pbr/learn-pbr/), [ts-pbr](../labs/encor/3-infrastructure/pbr/ts-pbr/) | 5 nodes, tested whole; dual ISP, guests via ISP2 with IP SLA tracking, `ip local policy` |
 | 3.3.a | NTP and PTP configurations | learn + ts | done (dev-tested) | [learn-ntp](../labs/encor/3-infrastructure/ntp/learn-ntp/), [ts-ntp](../labs/encor/3-infrastructure/ntp/ts-ntp/) | 4 nodes, tested whole; master → client/server → peers, MD5, access-groups. PTP concept-only (no PTP image). Full sync ~45–50 min |
-| 3.3.b | NAT/PAT | learn + ts | backlog | | |
+| 3.3.b | NAT/PAT | learn + ts | done (dev-tested) | [learn-nat](../labs/encor/3-infrastructure/nat/learn-nat/), [ts-nat](../labs/encor/3-infrastructure/nat/ts-nat/) | 5 nodes, tested whole; static NAT, port forwarding, dynamic pool, PAT, outside ACL vs NAT order. TS: 5 faults on R1 |
 | 3.3.c | FHRP: HSRP, VRRP | learn + ts | backlog | | Also covers 1.1.b |
 | 3.3.d | Multicast: RPF, PIM-SM, IGMPv2/v3, SSM, bidir, MSDP | learn | backlog | | verify bidir/MSDP on IOL-XE |
 
